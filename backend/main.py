@@ -1,0 +1,363 @@
+from fastapi import FastAPI, Body
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from typing import List, Any, Optional
+import uvicorn
+import os
+
+app = FastAPI()
+
+# VERY IMPORTANT: This allows your Next.js app to talk to Python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/")
+def read_root():
+    return {"status": "Engine is purring"}
+
+@app.get("/domains")
+def list_domains():
+    """
+    Get list of available document analysis domains (DEPRECATED - use /pipelines)
+    """
+    from pipeline_configs import list_pipelines
+    return {"domains": list_pipelines()}
+
+@app.get("/pipelines")
+def list_pipelines_endpoint():
+    """
+    Get list of available analysis pipelines
+    """
+    from pipeline_configs import list_pipelines
+    return {"pipelines": list_pipelines()}
+
+class ProcessRequest(BaseModel):
+    records: List[dict]
+    pipeline: str = "psych_timeline"  # Default to basic timeline
+    customer_name: Optional[str] = "Confidential Client"
+    customer_email: Optional[str] = ""
+
+class ExportPDFRequest(BaseModel):
+    analysis: dict
+    customer_name: Optional[str] = "Confidential Client"
+    pipeline: str = "psych_timeline"
+    records_analyzed: int = 0
+
+class UpdateEditsRequest(BaseModel):
+    case_id: str
+    edits: dict
+
+class UpdateStatusRequest(BaseModel):
+    case_id: str
+    status: str
+
+@app.post("/process")
+async def process_data(request: ProcessRequest):
+    """
+    Universal Forensic Discovery Endpoint
+    Receives documents and returns pipeline-specific forensic analysis
+
+    Parameters:
+    - records: List of document records (JSON objects)
+    - pipeline: One of "psych_timeline" (default), "psych_compliance", "psych_expert_witness", "psych_full_discovery"
+    - customer_name: Optional customer name for case tracking
+    - customer_email: Optional customer email for case tracking
+    """
+    records = request.records
+    pipeline = request.pipeline
+    customer_name = request.customer_name
+    customer_email = request.customer_email
+
+    print(f"\n{'='*60}")
+    print(f"[API] Received {len(records)} records for {pipeline} analysis")
+    print(f"{'='*60}\n")
+
+    # Import the pipeline
+    try:
+        from engine import run_forensic_pipeline
+        from pipeline_configs import get_pipeline_config
+        from case_manager import create_case, update_case_analysis
+    except Exception as import_error:
+        print(f"[API Error] Failed to import pipeline: {import_error}")
+        return {
+            "status": "error",
+            "error": f"Pipeline import failed: {str(import_error)}",
+            "analysis": {}
+        }
+
+    # Validate pipeline
+    try:
+        pipeline_config = get_pipeline_config(pipeline)
+        print(f"[API] Using pipeline: {pipeline_config['name']}")
+    except ValueError as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "analysis": {}
+        }
+
+    # Create case record
+    case_id = create_case(customer_name, customer_email, pipeline, len(records))
+
+    # Run the DocETL pipeline
+    try:
+        print("[API] Starting pipeline execution...")
+        analysis = run_forensic_pipeline(records, pipeline=pipeline)
+        print(f"[API] Pipeline returned: {analysis}")
+
+        # Log analysis metrics (keys depend on pipeline)
+        print(f"\n[API] Analysis complete:")
+        for key, value in analysis.items():
+            if isinstance(value, list):
+                print(f"  - {key}: {len(value)} items")
+        print()
+
+        # Update case with analysis results
+        update_case_analysis(case_id, analysis)
+
+        return {
+            "status": "success",
+            "case_id": case_id,
+            "pipeline": pipeline,
+            "records_analyzed": len(records),
+            "analysis": analysis
+        }
+    except Exception as e:
+        print(f"[API Error] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "error": str(e),
+            "analysis": {}
+        }
+
+@app.post("/export-pdf")
+async def export_pdf(request: ExportPDFRequest):
+    """
+    Export forensic analysis to PDF
+
+    Parameters:
+    - analysis: Analysis results dict
+    - customer_name: Name for PDF header
+    - pipeline: Pipeline type (for title)
+    - records_analyzed: Number of records processed
+    """
+    try:
+        from pdf_generator import generate_forensic_pdf
+        from pipeline_configs import get_pipeline_config
+
+        # Get pipeline config for proper title
+        try:
+            pipeline_config = get_pipeline_config(request.pipeline)
+            domain_name = pipeline_config['name']
+        except:
+            domain_name = "Forensic Analysis"
+
+        # Prepare case info
+        case_info = {
+            "customer_name": request.customer_name,
+            "domain_name": domain_name,
+            "records_analyzed": request.records_analyzed
+        }
+
+        # Generate PDF
+        output_path = "/tmp/forensic_report.pdf"
+        generate_forensic_pdf(request.analysis, case_info, output_path)
+
+        return FileResponse(
+            output_path,
+            media_type="application/pdf",
+            filename=f"forensic_report_{request.customer_name.replace(' ', '_')}.pdf"
+        )
+
+    except Exception as e:
+        print(f"[PDF Export Error] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.get("/admin/cases")
+async def list_all_cases():
+    """
+    Admin endpoint: List all cases
+
+    Returns:
+        List of all case records
+    """
+    try:
+        from case_manager import list_cases
+        cases = list_cases()
+        return {
+            "status": "success",
+            "cases": cases
+        }
+    except Exception as e:
+        print(f"[Admin Error] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.get("/admin/case/{case_id}")
+async def get_case_details(case_id: str):
+    """
+    Admin endpoint: Get case details
+
+    Parameters:
+        case_id: Case ID
+
+    Returns:
+        Full case record including analysis and edits
+    """
+    try:
+        from case_manager import get_case
+        case = get_case(case_id)
+        if case is None:
+            return {
+                "status": "error",
+                "error": f"Case {case_id} not found"
+            }
+        return {
+            "status": "success",
+            "case": case
+        }
+    except Exception as e:
+        print(f"[Admin Error] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.post("/admin/update-edits")
+async def update_edits(request: UpdateEditsRequest):
+    """
+    Admin endpoint: Update case edits
+
+    Parameters:
+        case_id: Case ID
+        edits: Edited analysis dict
+
+    Returns:
+        Success status
+    """
+    try:
+        from case_manager import update_case_edits
+        update_case_edits(request.case_id, request.edits)
+        return {
+            "status": "success",
+            "message": f"Edits saved for case {request.case_id}"
+        }
+    except Exception as e:
+        print(f"[Admin Error] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.post("/admin/update-status")
+async def update_status(request: UpdateStatusRequest):
+    """
+    Admin endpoint: Update case status
+
+    Parameters:
+        case_id: Case ID
+        status: New status (pending_review, approved, delivered)
+
+    Returns:
+        Success status
+    """
+    try:
+        from case_manager import update_case_status
+        update_case_status(request.case_id, request.status)
+        return {
+            "status": "success",
+            "message": f"Case {request.case_id} marked as {request.status}"
+        }
+    except Exception as e:
+        print(f"[Admin Error] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.get("/admin/export-pdf/{case_id}")
+async def export_case_pdf(case_id: str):
+    """
+    Admin endpoint: Export PDF for a specific case (uses edited version)
+
+    Parameters:
+        case_id: Case ID
+
+    Returns:
+        PDF file
+    """
+    try:
+        from pdf_generator import generate_forensic_pdf
+        from case_manager import get_case
+        from pipeline_configs import get_pipeline_config
+
+        # Get case
+        case = get_case(case_id)
+        if case is None:
+            return {
+                "status": "error",
+                "error": f"Case {case_id} not found"
+            }
+
+        # Get pipeline config for proper title (fallback to 'pipeline' field if 'domain' exists for backward compat)
+        try:
+            pipeline_id = case.get("pipeline", case.get("domain", "psych_timeline"))
+            pipeline_config = get_pipeline_config(pipeline_id)
+            domain_name = pipeline_config['name']
+        except:
+            domain_name = "Forensic Analysis"
+
+        # Prepare case info
+        case_info = {
+            "customer_name": case.get("customer_name", "Confidential Client"),
+            "domain_name": domain_name,
+            "records_analyzed": case.get("records_count", 0)
+        }
+
+        # Use edited version if available, otherwise use original analysis
+        analysis = case.get("edits", case.get("analysis", {}))
+
+        # Generate PDF
+        output_path = f"/tmp/forensic_report_{case_id}.pdf"
+        generate_forensic_pdf(analysis, case_info, output_path)
+
+        return FileResponse(
+            output_path,
+            media_type="application/pdf",
+            filename=f"forensic_report_{case['customer_name'].replace(' ', '_')}_{case_id}.pdf"
+        )
+
+    except Exception as e:
+        print(f"[PDF Export Error] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
