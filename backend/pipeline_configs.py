@@ -289,17 +289,23 @@ Assign confidence level:
 Return JSON with the original fields plus updated confidence field.
 """
         },
-        "analysis_prompt": """Create chronological medical timeline:
+        "analysis_prompt": """Create chronological medical timeline and analyze for gaps:
 
+CHRONOLOGY RECORDS:
 {% for record in inputs %}
 {{ record.date }}: [{{ record.event_type }}] {{ record.event_description }} (Provider: {{ record.provider }}) [Confidence: {{ record.confidence }}]
 {% if record.diagnosis %}Diagnosis: {{ record.diagnosis }}{% endif %}
 {% endfor %}
 
+CRITICAL ANALYSIS TASKS:
+  1. Create chronology list in format above
+  2. IMPORTANT: Identify ALL gaps in care >30 days between consecutive dates
+  3. IMPORTANT: Identify contradictory diagnoses, medication interactions, treatment delays
+
 Return JSON with:
 - chronology: List of chronological events with format "YYYY-MM-DD: [Event Type] - Event description (Provider: X) [Confidence: high/medium/low]"
-- missing_records: Gaps in care >30 days, format "Gap detected: YYYY-MM-DD to YYYY-MM-DD (X days) [Confidence: high/medium/low]"
-- red_flags: Potential issues (contradictory diagnoses, medication interactions, delays in treatment) with format "Issue description [Confidence: high/medium/low]"
+- missing_records: Gaps in care >30 days REQUIRED (format "Gap detected: YYYY-MM-DD to YYYY-MM-DD (X days) [Confidence: high/medium/low]")
+- red_flags: Issues found REQUIRED (format "Issue description [Confidence: high/medium/low])"
 """,
         "output_schema": {
             "date": "string",
