@@ -42,6 +42,7 @@ class ProcessRequest(BaseModel):
     pipeline: str = "psych_timeline"  # Default to basic timeline
     customer_name: Optional[str] = "Confidential Client"
     customer_email: Optional[str] = ""
+    hybrid_mode: Optional[bool] = False  # Use Claude for analysis, GPT-4o-mini for extraction
 
 class ExportPDFRequest(BaseModel):
     analysis: dict
@@ -73,9 +74,12 @@ async def process_data(request: ProcessRequest):
     pipeline = request.pipeline
     customer_name = request.customer_name
     customer_email = request.customer_email
+    hybrid_mode = request.hybrid_mode
 
     print(f"\n{'='*60}")
     print(f"[API] Received {len(records)} records for {pipeline} analysis")
+    if hybrid_mode:
+        print(f"[API] Hybrid mode enabled: Claude Sonnet 4 for analysis")
     print(f"{'='*60}\n")
 
     # Import the pipeline
@@ -108,8 +112,17 @@ async def process_data(request: ProcessRequest):
     # Run the DocETL pipeline
     try:
         print("[API] Starting pipeline execution...")
-        analysis = run_forensic_pipeline(records, pipeline=pipeline)
-        print(f"[API] Pipeline returned: {analysis}")
+        result = run_forensic_pipeline(records, pipeline=pipeline, hybrid_mode=hybrid_mode)
+        print(f"[API] Pipeline returned: {result}")
+
+        # Extract analysis and cost data from result
+        if "cost_data" in result:
+            analysis = result["analysis"]
+            cost_data = result["cost_data"]
+        else:
+            # Backward compatibility: if no cost_data, treat entire result as analysis
+            analysis = result
+            cost_data = None
 
         # Log analysis metrics (keys depend on pipeline)
         print(f"\n[API] Analysis complete:")
@@ -120,6 +133,11 @@ async def process_data(request: ProcessRequest):
 
         # Update case with analysis results
         update_case_analysis(case_id, analysis)
+
+        # Update case with cost data if available
+        if cost_data:
+            from case_manager import update_case_costs
+            update_case_costs(case_id, cost_data)
 
         return {
             "status": "success",

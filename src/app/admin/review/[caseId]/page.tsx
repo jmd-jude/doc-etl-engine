@@ -14,6 +14,16 @@ interface Case {
   status: string;
   analysis: any;
   edits: any;
+  cost_per_page?: number;
+  actual_cost?: number;
+  cost_breakdown?: {
+    extraction_cost: number;
+    analysis_cost: number;
+    total_cost: number;
+    total_tokens: number;
+    extraction_model: string;
+    analysis_model: string;
+  };
 }
 
 export default function CaseReview() {
@@ -471,6 +481,38 @@ export default function CaseReview() {
                 {((case_ as any).pipeline || (case_ as any).domain || 'Unknown').replace('_', ' ')}
               </dd>
             </div>
+            {case_.cost_breakdown && (
+              <>
+                <div>
+                  <dt className="text-purple-200">Processing Cost</dt>
+                  <dd className="text-white font-medium">
+                    ${case_.actual_cost?.toFixed(4)}
+                    <span className="text-purple-300 text-xs ml-2">
+                      (${case_.cost_per_page?.toFixed(4)}/page)
+                    </span>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-purple-200">Cost Breakdown</dt>
+                  <dd className="text-white font-medium text-sm">
+                    <div className="space-y-1">
+                      <div>Extraction: ${case_.cost_breakdown.extraction_cost?.toFixed(4)}</div>
+                      <div>Analysis: ${case_.cost_breakdown.analysis_cost?.toFixed(4)}</div>
+                      <div className="text-purple-300">Tokens: {case_.cost_breakdown.total_tokens?.toLocaleString()}</div>
+                    </div>
+                  </dd>
+                </div>
+                <div className="col-span-2">
+                  <dt className="text-purple-200">Models Used</dt>
+                  <dd className="text-white font-medium text-sm">
+                    <div className="flex gap-4">
+                      <span>Extraction: <span className="text-purple-300">{case_.cost_breakdown.extraction_model}</span></span>
+                      <span>Analysis: <span className="text-purple-300">{case_.cost_breakdown.analysis_model}</span></span>
+                    </div>
+                  </dd>
+                </div>
+              </>
+            )}
           </dl>
         </div>
       </div>

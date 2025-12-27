@@ -253,6 +253,8 @@ Return JSON with all fields from expert witness tier PLUS:
         "name": "Medical Chronology",
         "dataset_description": "medical records from various healthcare providers",
         "persona": "a medical chronologist preparing records for legal review",
+        "extraction_model": "gpt-4o-mini",  # Model for extraction phase
+        "analysis_model": "gpt-4o-mini",    # Model for analysis phase (can be changed to claude-sonnet-4-20250514 for higher quality)
         "extraction_prompt": """Extract from this medical record:
 
 Record: {{ input }}

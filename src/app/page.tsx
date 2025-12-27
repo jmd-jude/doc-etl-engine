@@ -72,6 +72,8 @@ export default function ForensicDiscovery() {
   const [caseId, setCaseId] = useState<string | null>(null);
   const [availablePipelines, setAvailablePipelines] = useState<Array<{id: string; name: string}>>([]);
   const [selectedPipeline, setSelectedPipeline] = useState('psych_timeline');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [useHybridMode, setUseHybridMode] = useState(false);
 
   // Fetch available pipelines on mount
   useEffect(() => {
@@ -185,7 +187,8 @@ export default function ForensicDiscovery() {
           records: recordsArray,
           pipeline: selectedPipeline,
           customer_name: customerName || 'Confidential Client',
-          customer_email: customerEmail || ''
+          customer_email: customerEmail || '',
+          hybrid_mode: useHybridMode
         }),
         signal: AbortSignal.timeout(120000), // 2 minute timeout for processing
       });
@@ -298,6 +301,39 @@ export default function ForensicDiscovery() {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Advanced Options */}
+          <div className="mb-6">
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="text-sm text-purple-300 hover:text-white transition-colors flex items-center gap-2"
+              disabled={state === 'processing'}
+            >
+              <span>{showAdvanced ? '▼' : '▶'}</span>
+              Advanced Options
+            </button>
+
+            {showAdvanced && (
+              <div className="mt-4 p-4 bg-slate-800/30 border border-slate-700/50 rounded-lg">
+                <label className="flex items-start gap-3 text-white cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useHybridMode}
+                    onChange={(e) => setUseHybridMode(e.target.checked)}
+                    disabled={state === 'processing'}
+                    className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-700 text-emerald-600 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <div>
+                    <div className="font-medium">Use Hybrid Mode (Premium)</div>
+                    <div className="text-sm text-slate-400 mt-1">
+                      Uses Claude Sonnet 4 for analysis (higher quality) and GPT-4o-mini for extraction.
+                      Cost: ~$0.60/page vs ~$0.15/page standard.
+                    </div>
+                  </div>
+                </label>
+              </div>
+            )}
           </div>
 
           {/* Customer Information */}

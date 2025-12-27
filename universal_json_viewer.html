@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal JSON Document Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Source+Code+Pro:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2b5876;
+            --accent: #4e4376;
+            --text-dark: #1a1a1a;
+            --text-mid: #4a4a4a;
+            --text-light: #6a6a6a;
+            --border: #d4d4d4;
+            --bg-page: #fafafa;
+            --bg-section: #ffffff;
+            --highlight: #fef3e2;
+            --success: #f5faf7;
+            --info: #1e40af;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #2b5876 0%, #4e4376 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .upload-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 3rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .upload-container h1 {
+            font-family: 'Crimson Pro', serif;
+            color: var(--primary);
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-container p {
+            color: var(--text-mid);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-label {
+            display: block;
+            padding: 3rem;
+            border: 3px dashed var(--border);
+            border-radius: 12px;
+            background: var(--bg-page);
+            transition: all 0.3s ease;
+        }
+
+        .file-input-wrapper:hover .file-input-label {
+            border-color: var(--primary);
+            background: #f0f4f8;
+            transform: translateY(-2px);
+        }
+
+        .file-input-label svg {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 1rem;
+            color: var(--primary);
+            opacity: 0.7;
+        }
+
+        .viewer-container {
+            display: none;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .viewer-header {
+            background: white;
+            padding: 2rem 2.5rem;
+            border-radius: 16px 16px 0 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-info {
+            flex: 1;
+        }
+
+        .viewer-header h2 {
+            font-family: 'Crimson Pro', serif;
+            color: var(--primary);
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .file-meta {
+            font-family: 'Source Code Pro', monospace;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: var(--text-dark);
+        }
+
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+
+        .btn-secondary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .page-info {
+            font-family: 'Source Code Pro', monospace;
+            color: var(--text-mid);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .document-viewer {
+            background: white;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            border-radius: 0 0 16px 16px;
+            overflow: hidden;
+        }
+
+        .document-page {
+            background: var(--bg-page);
+            padding: 3rem;
+            min-height: 800px;
+        }
+
+        /* Document Styling */
+        .doc-wrapper {
+            background: var(--bg-section);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 2.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .doc-title {
+            font-family: 'Crimson Pro', serif;
+            font-size: 1.5rem;
+            color: var(--primary);
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 3px solid var(--primary);
+        }
+
+        .field-group {
+            margin-bottom: 2rem;
+        }
+
+        .field-label {
+            font-weight: 600;
+            color: var(--primary);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .field-type {
+            font-family: 'Source Code Pro', monospace;
+            font-size: 0.7rem;
+            background: var(--highlight);
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            color: var(--text-mid);
+            font-weight: 500;
+        }
+
+        .field-value {
+            color: var(--text-dark);
+            line-height: 1.7;
+            padding: 1rem;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .field-value-inline {
+            font-family: 'Source Code Pro', monospace;
+            font-size: 0.95rem;
+            color: var(--info);
+            font-weight: 500;
+        }
+
+        .field-value-text {
+            white-space: pre-wrap;
+        }
+
+        .field-value-date {
+            font-family: 'Source Code Pro', monospace;
+            font-weight: 600;
+            color: var(--success);
+        }
+
+        .nested-object {
+            background: #f8f9fa;
+            border-left: 3px solid var(--accent);
+            padding: 1.5rem;
+            border-radius: 6px;
+        }
+
+        .nested-field {
+            display: grid;
+            grid-template-columns: 180px 1fr;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .nested-field:last-child {
+            border-bottom: none;
+        }
+
+        .nested-label {
+            font-weight: 500;
+            color: var(--text-mid);
+            font-size: 0.9rem;
+        }
+
+        .nested-value {
+            font-family: 'Source Code Pro', monospace;
+            color: var(--text-dark);
+            font-size: 0.9rem;
+        }
+
+        .array-list {
+            list-style: none;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0;
+        }
+
+        .array-item {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #f0f0f0;
+            position: relative;
+            padding-left: 3rem;
+        }
+
+        .array-item:last-child {
+            border-bottom: none;
+        }
+
+        .array-item:before {
+            content: attr(data-index);
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 24px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .key-value-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            background: white;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .kv-item {
+            padding: 1rem;
+            background: var(--bg-page);
+            border-radius: 6px;
+        }
+
+        .kv-label {
+            font-weight: 600;
+            color: var(--text-mid);
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .kv-value {
+            font-family: 'Source Code Pro', monospace;
+            color: var(--text-dark);
+            font-size: 0.95rem;
+        }
+
+        .metadata-banner {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .metadata-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .metadata-label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+        }
+
+        .metadata-value {
+            font-family: 'Source Code Pro', monospace;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .watermark {
+            margin-top: 3rem;
+            padding: 1.25rem;
+            background: var(--highlight);
+            border-left: 4px solid #f59e0b;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: var(--text-mid);
+            line-height: 1.6;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-light);
+        }
+
+        .json-raw {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1.5rem;
+            border-radius: 6px;
+            font-family: 'Source Code Pro', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .toggle-raw {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-mid);
+            font-size: 1.1rem;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .nested-field {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+
+            .key-value-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .viewer-header, .controls {
+                display: none;
+            }
+            
+            .document-viewer {
+                box-shadow: none;
+                border-radius: 0;
+            }
+
+            .document-page {
+                page-break-after: always;
+                break-after: page;
+                min-height: 100vh;
+                padding: 1in;
+            }
+
+            .document-page:last-child {
+                page-break-after: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="upload-container" id="uploadContainer">
+        <h1>Universal Document Viewer</h1>
+        <p>Upload any JSON file to view it as a formatted document.<br>
+        Works with any structure - automatically adapts to your data schema.</p>
+        
+        <div class="file-input-wrapper">
+            <input type="file" id="fileInput" accept=".json">
+            <label class="file-input-label" for="fileInput">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <div style="font-weight: 600; color: var(--primary); margin-bottom: 0.5rem; font-size: 1.1rem;">
+                    Drop JSON file here or click to browse
+                </div>
+                <div style="font-size: 0.9rem; color: var(--text-mid);">
+                    Supports any JSON structure with arrays of records
+                </div>
+            </label>
+        </div>
+    </div>
+
+    <div class="viewer-container" id="viewerContainer">
+        <div class="viewer-header">
+            <div class="header-info">
+                <h2 id="fileName">Document Viewer</h2>
+                <div class="file-meta">
+                    <span id="fileMeta">JSON Document</span>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn-secondary" id="prevBtn" disabled>← Previous</button>
+                <span class="page-info">
+                    Record <span id="currentPage">1</span> of <span id="totalPages">1</span>
+                </span>
+                <button class="btn-secondary" id="nextBtn">Next →</button>
+                <button class="btn-primary" id="newFileBtn">New File</button>
+            </div>
+        </div>
+        <div class="document-viewer">
+            <div class="document-page" id="documentPage">
+                <div class="loading">Loading document...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let records = [];
+        let currentIndex = 0;
+        let fileName = '';
+        let isPrintMode = false;
+
+        const uploadContainer = document.getElementById('uploadContainer');
+        const viewerContainer = document.getElementById('viewerContainer');
+        const fileInput = document.getElementById('fileInput');
+        const documentPage = document.getElementById('documentPage');
+        const currentPageSpan = document.getElementById('currentPage');
+        const totalPagesSpan = document.getElementById('totalPages');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const newFileBtn = document.getElementById('newFileBtn');
+        const fileNameDisplay = document.getElementById('fileName');
+        const fileMetaDisplay = document.getElementById('fileMeta');
+
+        fileInput.addEventListener('change', handleFileUpload);
+        prevBtn.addEventListener('click', () => navigateRecord(-1));
+        nextBtn.addEventListener('click', () => navigateRecord(1));
+        newFileBtn.addEventListener('click', resetViewer);
+
+        // Handle print mode - render all records
+        window.addEventListener('beforeprint', () => {
+            isPrintMode = true;
+            renderAllRecords();
+        });
+
+        window.addEventListener('afterprint', () => {
+            isPrintMode = false;
+            renderRecord();
+        });
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            fileName = file.name;
+            fileNameDisplay.textContent = fileName.replace('.json', '');
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    // Handle both array and single object
+                    if (Array.isArray(data)) {
+                        records = data;
+                    } else {
+                        records = [data];
+                    }
+                    
+                    if (records.length === 0) {
+                        alert('JSON file contains no records.');
+                        return;
+                    }
+                    
+                    currentIndex = 0;
+                    uploadContainer.style.display = 'none';
+                    viewerContainer.style.display = 'block';
+                    totalPagesSpan.textContent = records.length;
+                    fileMetaDisplay.textContent = `${records.length} record${records.length !== 1 ? 's' : ''} • ${(file.size / 1024).toFixed(1)} KB`;
+                    renderRecord();
+                } catch (error) {
+                    alert('Error parsing JSON file: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function navigateRecord(direction) {
+            currentIndex += direction;
+            currentIndex = Math.max(0, Math.min(currentIndex, records.length - 1));
+            renderRecord();
+        }
+
+        function renderRecord() {
+            const record = records[currentIndex];
+            currentPageSpan.textContent = currentIndex + 1;
+            
+            prevBtn.disabled = currentIndex === 0;
+            nextBtn.disabled = currentIndex === records.length - 1;
+
+            documentPage.innerHTML = generateDocumentHTML(record);
+        }
+
+        function renderAllRecords() {
+            let html = '';
+            records.forEach((record, index) => {
+                html += `<div class="document-page">${generateDocumentHTML(record)}</div>`;
+            });
+            document.querySelector('.document-viewer').innerHTML = html;
+        }
+
+        function resetViewer() {
+            uploadContainer.style.display = 'block';
+            viewerContainer.style.display = 'none';
+            fileInput.value = '';
+            records = [];
+            currentIndex = 0;
+        }
+
+        function isDate(value) {
+            if (typeof value !== 'string') return false;
+            // Check for common date formats
+            const datePatterns = [
+                /^\d{4}-\d{2}-\d{2}/, // YYYY-MM-DD
+                /^\d{2}\/\d{2}\/\d{4}/, // MM/DD/YYYY
+                /^\d{1,2}-\w{3}-\d{4}/, // D-Mon-YYYY
+            ];
+            return datePatterns.some(pattern => pattern.test(value));
+        }
+
+        function formatValue(value, key = '') {
+            if (value === null || value === undefined) {
+                return '<span style="opacity: 0.5; font-style: italic;">null</span>';
+            }
+            
+            if (typeof value === 'boolean') {
+                return `<span style="color: var(--${value ? 'success' : 'accent'}); font-weight: 600;">${value}</span>`;
+            }
+            
+            if (typeof value === 'number') {
+                return `<span class="field-value-inline">${value.toLocaleString()}</span>`;
+            }
+            
+            if (isDate(value)) {
+                try {
+                    const date = new Date(value);
+                    return `<span class="field-value-date">${date.toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        hour: value.includes('T') ? '2-digit' : undefined,
+                        minute: value.includes('T') ? '2-digit' : undefined
+                    })}</span>`;
+                } catch {
+                    return value;
+                }
+            }
+            
+            return value;
+        }
+
+        function getFieldType(value) {
+            if (value === null || value === undefined) return 'null';
+            if (Array.isArray(value)) return 'array';
+            if (typeof value === 'object') return 'object';
+            if (typeof value === 'boolean') return 'boolean';
+            if (typeof value === 'number') return 'number';
+            if (isDate(value)) return 'date';
+            return 'text';
+        }
+
+        function isMetadataField(key) {
+            const metaKeys = ['id', 'date', 'record_id', 'mrn', 'patient_id', 'provider', 
+                             'facility', 'record_type', 'type', 'created_at', 'updated_at'];
+            return metaKeys.some(mk => key.toLowerCase().includes(mk.toLowerCase()));
+        }
+
+        function formatFieldName(key) {
+            return key
+                .replace(/_/g, ' ')
+                .replace(/([A-Z])/g, ' $1')
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ')
+                .trim();
+        }
+
+        function generateDocumentHTML(record) {
+            if (!record || typeof record !== 'object') {
+                return '<div class="empty-state">Invalid record format</div>';
+            }
+
+            let html = '<div class="doc-wrapper">';
+            
+            // Extract metadata fields
+            const metadata = {};
+            const contentFields = {};
+            
+            for (const [key, value] of Object.entries(record)) {
+                if (isMetadataField(key)) {
+                    metadata[key] = value;
+                } else {
+                    contentFields[key] = value;
+                }
+            }
+
+            // Render metadata banner if we have metadata
+            if (Object.keys(metadata).length > 0) {
+                html += '<div class="metadata-banner"><div class="metadata-grid">';
+                for (const [key, value] of Object.entries(metadata)) {
+                    if (value !== null && value !== undefined) {
+                        html += `
+                            <div class="metadata-item">
+                                <div class="metadata-label">${formatFieldName(key)}</div>
+                                <div class="metadata-value">${formatValue(value, key)}</div>
+                            </div>
+                        `;
+                    }
+                }
+                html += '</div></div>';
+            }
+
+            // Determine document title
+            const title = record.record_type || record.type || record.title || 
+                         `Record ${currentIndex + 1}`;
+            html += `<div class="doc-title">${title}</div>`;
+
+            // Render content fields
+            for (const [key, value] of Object.entries(contentFields)) {
+                if (value === null || value === undefined) continue;
+
+                const fieldType = getFieldType(value);
+                
+                html += '<div class="field-group">';
+                html += `
+                    <div class="field-label">
+                        ${formatFieldName(key)}
+                        <span class="field-type">${fieldType}</span>
+                    </div>
+                `;
+
+                if (Array.isArray(value)) {
+                    if (value.length === 0) {
+                        html += '<div class="field-value"><em style="opacity: 0.6;">Empty list</em></div>';
+                    } else if (typeof value[0] === 'object') {
+                        // Array of objects
+                        html += '<ul class="array-list">';
+                        value.forEach((item, idx) => {
+                            html += `<li class="array-item" data-index="${idx + 1}">`;
+                            html += renderObject(item);
+                            html += '</li>';
+                        });
+                        html += '</ul>';
+                    } else {
+                        // Array of primitives
+                        html += '<ul class="array-list">';
+                        value.forEach((item, idx) => {
+                            html += `
+                                <li class="array-item" data-index="${idx + 1}">
+                                    ${formatValue(item)}
+                                </li>
+                            `;
+                        });
+                        html += '</ul>';
+                    }
+                } else if (typeof value === 'object') {
+                    html += '<div class="nested-object">';
+                    html += renderObject(value);
+                    html += '</div>';
+                } else {
+                    // Primitive value
+                    const isLongText = typeof value === 'string' && value.length > 100;
+                    if (isLongText) {
+                        html += `<div class="field-value field-value-text">${value}</div>`;
+                    } else {
+                        html += `<div class="field-value">${formatValue(value, key)}</div>`;
+                    }
+                }
+
+                html += '</div>';
+            }
+
+            html += `
+                <div class="watermark">
+                    📄 This view automatically adapts to any JSON structure. 
+                    Original data is converted from various source formats (PDFs, Word docs, databases) 
+                    into structured JSON for processing.
+                </div>
+            `;
+
+            html += '</div>';
+
+            return html;
+        }
+
+        function renderObject(obj) {
+            let html = '';
+            
+            // Check if it's a simple object (all primitive values) -> use grid
+            const values = Object.values(obj);
+            const isSimple = values.every(v => 
+                typeof v !== 'object' || v === null
+            );
+
+            if (isSimple) {
+                html += '<div class="key-value-grid">';
+                for (const [key, value] of Object.entries(obj)) {
+                    if (value !== null && value !== undefined) {
+                        html += `
+                            <div class="kv-item">
+                                <div class="kv-label">${formatFieldName(key)}</div>
+                                <div class="kv-value">${formatValue(value, key)}</div>
+                            </div>
+                        `;
+                    }
+                }
+                html += '</div>';
+            } else {
+                // Complex object -> use nested fields
+                for (const [key, value] of Object.entries(obj)) {
+                    if (value === null || value === undefined) continue;
+                    
+                    html += '<div class="nested-field">';
+                    html += `<div class="nested-label">${formatFieldName(key)}</div>`;
+                    html += '<div class="nested-value">';
+                    
+                    if (Array.isArray(value)) {
+                        html += `[${value.length} items]`;
+                    } else if (typeof value === 'object') {
+                        html += '{...}';
+                    } else {
+                        html += formatValue(value, key);
+                    }
+                    
+                    html += '</div>';
+                    html += '</div>';
+                }
+            }
+
+            return html;
+        }
+    </script>
+</body>
+</html>

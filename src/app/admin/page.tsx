@@ -12,6 +12,16 @@ interface Case {
   uploaded_at: string;
   status: string;
   estimated_cost_per_page?: number;
+  cost_per_page?: number;
+  actual_cost?: number;
+  cost_breakdown?: {
+    extraction_cost: number;
+    analysis_cost: number;
+    total_cost: number;
+    total_tokens: number;
+    extraction_model: string;
+    analysis_model: string;
+  };
 }
 
 export default function AdminDashboard() {
@@ -179,9 +189,20 @@ export default function AdminDashboard() {
                         <span className="text-sm text-gray-700">{case_.records_count}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-gray-700 font-medium">
-                          ${(case_.estimated_cost_per_page || 0.15).toFixed(2)}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-sm text-gray-700 font-medium">
+                            ${(case_.cost_per_page && case_.cost_per_page > 0 ? case_.cost_per_page : case_.estimated_cost_per_page || 0.15).toFixed(4)}
+                          </span>
+                          {case_.cost_per_page && case_.cost_per_page > 0 ? (
+                            <span className="text-xs text-green-600 font-medium">
+                              actual
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-500">
+                              estimated
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">{getStatusBadge(case_.status)}</td>
                       <td className="px-6 py-4">

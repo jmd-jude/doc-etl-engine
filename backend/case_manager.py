@@ -174,3 +174,40 @@ def update_case_status(case_id: str, status: str):
         json.dump(case, f, indent=2)
 
     print(f"[Case Manager] Updated case {case_id} status to {status}")
+
+def update_case_costs(case_id: str, cost_data: Dict):
+    """
+    Update case with actual processing costs
+
+    Args:
+        case_id: Case ID
+        cost_data: Dict with extraction_cost, analysis_cost, total_cost, total_tokens, etc.
+    """
+    ensure_cases_dir()
+    case_path = os.path.join(CASES_DIR, f"{case_id}.json")
+
+    if not os.path.exists(case_path):
+        print(f"[Case Manager] Warning: Case {case_id} not found")
+        return
+
+    # Skip saving if all costs are zero (no LLM calls were made, likely cache hit)
+    if cost_data.get("total_cost", 0) == 0:
+        print(f"[Case Manager] No costs to track for case {case_id} (likely cache hit)")
+        return
+
+    with open(case_path, "r") as f:
+        case = json.load(f)
+
+    # Calculate cost per page
+    records_count = case.get("records_count", cost_data.get("records_processed", 0))
+    cost_per_page = cost_data["total_cost"] / records_count if records_count > 0 else 0
+
+    # Update case with actual costs
+    case["actual_cost"] = cost_data["total_cost"]
+    case["cost_per_page"] = cost_per_page
+    case["cost_breakdown"] = cost_data
+
+    with open(case_path, "w") as f:
+        json.dump(case, f, indent=2)
+
+    print(f"[Case Manager] Updated costs for case {case_id}: ${cost_data['total_cost']:.4f} (${cost_per_page:.4f}/page)")
