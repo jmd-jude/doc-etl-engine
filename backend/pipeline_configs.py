@@ -1,5 +1,5 @@
 """
-Pipeline Configuration System for InsightStream Forensic
+Pipeline Configuration System for ChronoScope
 Enables multi-pipeline document analysis with minimal code changes
 """
 
@@ -247,6 +247,73 @@ Return JSON with all fields from expert witness tier PLUS:
             "causation_analysis": "list[str]",
             "damages_assessment": "list[str]"
         }
+    },
+
+    "medical_chronology": {
+        "name": "Medical Chronology",
+        "dataset_description": "medical records from various healthcare providers",
+        "persona": "a medical chronologist preparing records for legal review",
+        "extraction_prompt": """Extract from this medical record:
+
+Record: {{ input }}
+
+Return JSON with:
+- date: Record date (YYYY-MM-DD format)
+- provider: Physician or facility name
+- event_type: (visit, procedure, test, medication, hospitalization, discharge)
+- event_description: One to two sentence summary of the event
+- diagnosis: Diagnosis mentioned (if any)
+- confidence: Confidence level (high, medium, or low)
+""",
+        "gleaning": {
+            "num_rounds": 1,
+            "validation_prompt": """Review the extracted medical event for accuracy:
+
+Extracted data:
+Date: {{ output.date }}
+Provider: {{ output.provider }}
+Event Type: {{ output.event_type }}
+Event Description: {{ output.event_description }}
+Diagnosis: {{ output.diagnosis }}
+
+Validation criteria:
+- Is the date in YYYY-MM-DD format and clearly stated in the record?
+- Is the provider name clearly stated (not "unknown", "unclear", or inferred)?
+- Is the event description specific and factual (not vague or assumed)?
+
+Assign confidence level:
+- "high": All fields are clearly documented with specific information
+- "medium": Date is present but provider/description are partially inferred or vague
+- "low": Key information is uncertain, missing, or heavily inferred
+
+Return JSON with the original fields plus updated confidence field.
+"""
+        },
+        "analysis_prompt": """Create chronological medical timeline:
+
+{% for record in inputs %}
+{{ record.date }}: [{{ record.event_type }}] {{ record.event_description }} (Provider: {{ record.provider }}) [Confidence: {{ record.confidence }}]
+{% if record.diagnosis %}Diagnosis: {{ record.diagnosis }}{% endif %}
+{% endfor %}
+
+Return JSON with:
+- chronology: List of chronological events with format "YYYY-MM-DD: [Event Type] - Event description (Provider: X) [Confidence: high/medium/low]"
+- missing_records: Gaps in care >30 days, format "Gap detected: YYYY-MM-DD to YYYY-MM-DD (X days) [Confidence: high/medium/low]"
+- red_flags: Potential issues (contradictory diagnoses, medication interactions, delays in treatment) with format "Issue description [Confidence: high/medium/low]"
+""",
+        "output_schema": {
+            "date": "string",
+            "provider": "string",
+            "event_type": "string",
+            "event_description": "string",
+            "diagnosis": "string",
+            "confidence": "string"
+        },
+        "analysis_schema": {
+            "chronology": "list[str]",
+            "missing_records": "list[str]",
+            "red_flags": "list[str]"
+        }
     }
 }
 
@@ -256,7 +323,7 @@ def get_pipeline_config(pipeline: str):
     Get configuration for a specific pipeline
 
     Args:
-        pipeline: One of "psych_timeline", "psych_compliance", "psych_expert_witness", "psych_full_discovery"
+        pipeline: One of "psych_timeline", "psych_compliance", "psych_expert_witness", "psych_full_discovery", medical_chronology"
 
     Returns:
         Pipeline configuration dict

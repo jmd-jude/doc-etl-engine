@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "InsightStream Forensic",
+  title: "FPA Med AI",
   description: "Legal-grade forensic data discovery and entity resolution",
 };
 

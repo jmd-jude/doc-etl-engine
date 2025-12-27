@@ -41,7 +41,8 @@ def create_case(customer_name: str, customer_email: str, pipeline: str, records_
         "pipeline": pipeline,
         "records_count": records_count,
         "uploaded_at": datetime.now().isoformat(),
-        "status": "processing"  # processing, pending_review, approved, delivered
+        "status": "processing",  # processing, pending_review, approved, delivered
+        "estimated_cost_per_page": 0.15
     }
 
     case_path = os.path.join(CASES_DIR, f"{case_id}.json")

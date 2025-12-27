@@ -27,6 +27,7 @@ export default function CaseReview() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
+  const [showOnlyLowConfidence, setShowOnlyLowConfidence] = useState(false);
 
   useEffect(() => {
     fetchCase();
@@ -179,6 +180,39 @@ export default function CaseReview() {
     );
   };
 
+  const getConfidenceBadge = (confidence: string) => {
+    const styles = {
+      high: 'bg-green-100 text-green-800',
+      medium: 'bg-yellow-100 text-yellow-800',
+      low: 'bg-red-100 text-red-800',
+    };
+
+    return (
+      <span className={`px-2 py-1 rounded text-xs font-medium ${styles[confidence as keyof typeof styles] || styles.medium}`}>
+        {confidence || 'medium'}
+      </span>
+    );
+  };
+
+  const extractConfidenceFromText = (text: string): { text: string; confidence: string } => {
+    const confidenceMatch = text.match(/\[Confidence:\s*(high|medium|low)\]/i);
+    if (confidenceMatch) {
+      return {
+        text: text.replace(/\[Confidence:\s*(high|medium|low)\]/i, '').trim(),
+        confidence: confidenceMatch[1].toLowerCase()
+      };
+    }
+    return { text, confidence: 'medium' };
+  };
+
+  const filterItemsByConfidence = (items: string[]) => {
+    if (!showOnlyLowConfidence) return items;
+    return items.filter(item => {
+      const { confidence } = extractConfidenceFromText(item);
+      return confidence === 'low';
+    });
+  };
+
   const getSectionTitle = (key: string) => {
     const titles: { [key: string]: string } = {
       // Common sections
@@ -203,6 +237,11 @@ export default function CaseReview() {
       legal_psychiatric_interface: 'Legal-Psychiatric Interface',
       causation_analysis: 'Causation Analysis',
       damages_assessment: 'Damages Assessment',
+
+      // Medical chronology sections
+      chronology: 'Medical Chronology',
+      missing_records: 'Missing Records / Care Gaps',
+      red_flags: 'Red Flags',
     };
     return titles[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
@@ -231,6 +270,11 @@ export default function CaseReview() {
       legal_psychiatric_interface: 'border-gray-300 bg-gray-50',
       causation_analysis: 'border-green-300 bg-green-50',
       damages_assessment: 'border-blue-300 bg-blue-50',
+
+      // Medical chronology sections
+      chronology: 'border-blue-300 bg-blue-50',
+      missing_records: 'border-orange-300 bg-orange-50',
+      red_flags: 'border-red-300 bg-red-50',
     };
     return colors[key] || 'border-gray-300 bg-gray-50';
   };
@@ -305,10 +349,32 @@ export default function CaseReview() {
           </div>
         </div>
 
+        {/* Confidence Filter Toggle */}
+        {edits && Object.keys(edits).some(key => ['chronology', 'missing_records', 'red_flags'].includes(key)) && (
+          <div className="mb-6 bg-white rounded-xl shadow-lg p-4">
+            <button
+              onClick={() => setShowOnlyLowConfidence(!showOnlyLowConfidence)}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                showOnlyLowConfidence
+                  ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+              }`}
+            >
+              {showOnlyLowConfidence ? '✓ Showing Low Confidence Only' : 'Show Low Confidence Only'}
+            </button>
+            <span className="ml-3 text-sm text-gray-600">
+              Filter to show only items that need review
+            </span>
+          </div>
+        )}
+
         {/* Editable Sections */}
         <div className="space-y-6">
           {Object.keys(edits).map((section) => {
             if (!Array.isArray(edits[section])) return null;
+
+            const filteredItems = filterItemsByConfidence(edits[section]);
+            const displayItems = showOnlyLowConfidence ? filteredItems : edits[section];
 
             return (
               <div
@@ -318,29 +384,56 @@ export default function CaseReview() {
                 <div className="bg-gradient-to-r from-purple-600 to-blue-600 px-6 py-4">
                   <h2 className="text-xl font-bold text-white">
                     {getSectionTitle(section)} ({edits[section].length})
+                    {showOnlyLowConfidence && filteredItems.length !== edits[section].length && (
+                      <span className="ml-2 text-sm font-normal opacity-90">
+                        - Showing {filteredItems.length} low confidence items
+                      </span>
+                    )}
                   </h2>
                 </div>
 
                 <div className="p-6 space-y-4">
-                  {edits[section].map((item: string, index: number) => (
-                    <div key={index} className="flex gap-2">
-                      <div className="flex-shrink-0 w-8 h-8 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center font-medium text-sm">
-                        {index + 1}
-                      </div>
-                      <textarea
-                        value={item}
-                        onChange={(e) => updateListItem(section, index, e.target.value)}
-                        className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 min-h-[80px] font-mono text-sm"
-                      />
-                      <button
-                        onClick={() => removeListItem(section, index)}
-                        className="flex-shrink-0 w-8 h-8 bg-red-100 hover:bg-red-200 text-red-700 rounded-full flex items-center justify-center transition-colors"
-                        title="Remove item"
-                      >
-                        ×
-                      </button>
+                  {displayItems.length === 0 && showOnlyLowConfidence ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No low confidence items in this section
                     </div>
-                  ))}
+                  ) : (
+                    displayItems.map((item: string, displayIndex: number) => {
+                      const actualIndex = edits[section].indexOf(item);
+                      const { text, confidence } = extractConfidenceFromText(item);
+
+                      return (
+                        <div key={actualIndex} className="flex gap-2">
+                          <div className="flex-shrink-0 w-8 h-8 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center font-medium text-sm">
+                            {actualIndex + 1}
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-start gap-2">
+                              <textarea
+                                value={item}
+                                onChange={(e) => updateListItem(section, actualIndex, e.target.value)}
+                                className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 min-h-[80px] font-mono text-sm"
+                              />
+                              {getConfidenceBadge(confidence)}
+                            </div>
+                            {case_.analysis && (case_.analysis as any).forensic_audit_lineage && (
+                              <div className="text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded border border-gray-200">
+                                <span className="font-semibold">Source records: </span>
+                                {(case_.analysis as any).forensic_audit_lineage[actualIndex]?.join(', ') || 'N/A'}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => removeListItem(section, actualIndex)}
+                            className="flex-shrink-0 w-8 h-8 bg-red-100 hover:bg-red-200 text-red-700 rounded-full flex items-center justify-center transition-colors"
+                            title="Remove item"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
 
                   <button
                     onClick={() => addListItem(section)}

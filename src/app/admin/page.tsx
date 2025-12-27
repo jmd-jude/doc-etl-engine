@@ -11,6 +11,7 @@ interface Case {
   records_count: number;
   uploaded_at: string;
   status: string;
+  estimated_cost_per_page?: number;
 }
 
 export default function AdminDashboard() {
@@ -99,10 +100,10 @@ export default function AdminDashboard() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">
-            InsightStream Admin
+            FPA Med - ChronoScope Admin
           </h1>
           <p className="text-purple-200">
-            Case Management Dashboard
+            Job Management Dashboard
           </p>
         </div>
 
@@ -142,6 +143,7 @@ export default function AdminDashboard() {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white">Customer</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white">Analysis Package</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white">Records</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Cost/Page</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white">Uploaded</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white">Action</th>
@@ -150,7 +152,7 @@ export default function AdminDashboard() {
               <tbody className="divide-y divide-gray-200">
                 {cases.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       No cases yet. Upload documents to get started.
                     </td>
                   </tr>
@@ -175,6 +177,11 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm text-gray-700">{case_.records_count}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-gray-700 font-medium">
+                          ${(case_.estimated_cost_per_page || 0.15).toFixed(2)}
+                        </span>
                       </td>
                       <td className="px-6 py-4">{getStatusBadge(case_.status)}</td>
                       <td className="px-6 py-4">

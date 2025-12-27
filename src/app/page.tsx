@@ -10,12 +10,12 @@ interface AnalysisResult {
 }
 
 const PROCESSING_STAGES = [
-  'Validating JSON structure...',
-  'Extracting clinical events from records...',
+  'Validating inputs structure...',
+  'Extracting data from records...',
   'Running entity resolution...',
-  'Auditing for contradictions...',
-  'Identifying critical gaps...',
-  'Synthesizing medical chronology...',
+  'Auditing...',
+  'Identifying gaps...',
+  'Synthesizing...',
 ];
 
 const SAMPLE_JSON = [
@@ -229,7 +229,7 @@ export default function ForensicDiscovery() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-8 w-1 bg-emerald-500 rounded-full"></div>
-            <h1 className="text-xl font-semibold tracking-tight">InsightStream Forensic</h1>
+            <h1 className="text-xl font-semibold tracking-tight">FPA Med - ChronoScope - Medical Chronology AI</h1>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <span className="text-slate-400">System Status</span>
@@ -261,7 +261,7 @@ export default function ForensicDiscovery() {
             <div>
               <h2 className="text-2xl font-semibold mb-2">Data Intake</h2>
               <p className="text-slate-400 text-sm">
-                Upload forensic medical records for automated contradiction detection
+                Upload files (PDF or JSON)
               </p>
             </div>
             <div className="flex gap-3">
@@ -521,7 +521,7 @@ export default function ForensicDiscovery() {
               <FileJson className="h-16 w-16 text-slate-700 mx-auto mb-4" />
               <p className="text-slate-500 text-lg">No analysis yet</p>
               <p className="text-sm text-slate-600 mt-1">
-                Upload medical records to detect gaps and contradictions
+                Upload Data (PDF or JSON)
               </p>
             </div>
           </div>
@@ -531,9 +531,9 @@ export default function ForensicDiscovery() {
       {/* Footer */}
       <footer className="border-t border-slate-800/50 mt-20">
         <div className="max-w-7xl mx-auto px-6 py-6 text-center text-sm text-slate-500">
-          <p>InsightStream Forensic Discovery Engine</p>
+          <p>FPA Med - ChronoScope - Medical Chronology AI</p>
           <p className="mt-1 font-[var(--font-geist-mono)] text-xs">
-            Powered by DocETL • Legal-Grade Entity Resolution & Contradiction Detection
+            Powered by DocETL • FPAMed
           </p>
         </div>
       </footer>

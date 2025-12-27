@@ -60,7 +60,8 @@ def run_forensic_pipeline(input_data, pipeline="psych_timeline"):
                 "reduce_key": "case_group",
                 "prompt": pipeline_config["analysis_prompt"],
                 "output": {
-                    "schema": pipeline_config["analysis_schema"]
+                    "schema": pipeline_config["analysis_schema"],
+                    "lineage": ["date", "record_id", "provider"]
                 }
             }
         ],
