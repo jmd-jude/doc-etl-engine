@@ -35,7 +35,7 @@ export default function AdminDashboard() {
 
   const fetchCases = async () => {
     try {
-      const response = await fetch('http://localhost:8000/admin/cases');
+      const response = await fetch('http://localhost:8001/admin/cases');
       const data = await response.json();
 
       if (data.status === 'success') {

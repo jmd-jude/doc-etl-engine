@@ -79,7 +79,7 @@ export default function ForensicDiscovery() {
   useEffect(() => {
     const fetchPipelines = async () => {
       try {
-        const response = await fetch('http://localhost:8000/pipelines');
+        const response = await fetch('http://localhost:8001/pipelines');
         const data = await response.json();
         if (data.pipelines && data.pipelines.length > 0) {
           setAvailablePipelines(data.pipelines);
@@ -96,7 +96,7 @@ export default function ForensicDiscovery() {
   useEffect(() => {
     const checkBackend = async () => {
       try {
-        const response = await fetch('http://localhost:8000/', {
+        const response = await fetch('http://localhost:8001/', {
           signal: AbortSignal.timeout(5000), // Increased to 5 seconds
           mode: 'cors'
         });
@@ -180,7 +180,7 @@ export default function ForensicDiscovery() {
       // Wait for processing animation to complete
       await new Promise(resolve => setTimeout(resolve, PROCESSING_STAGES.length * 1200));
 
-      const response = await fetch('http://localhost:8000/process', {
+      const response = await fetch('http://localhost:8001/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

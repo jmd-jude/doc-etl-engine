@@ -45,7 +45,7 @@ export default function CaseReview() {
 
   const fetchCase = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/admin/case/${caseId}`);
+      const response = await fetch(`http://localhost:8001/admin/case/${caseId}`);
       const data = await response.json();
 
       if (data.status === 'success') {
@@ -66,7 +66,7 @@ export default function CaseReview() {
     setSaveMessage('');
 
     try {
-      const response = await fetch('http://localhost:8000/admin/update-edits', {
+      const response = await fetch('http://localhost:8001/admin/update-edits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -92,7 +92,7 @@ export default function CaseReview() {
 
   const updateStatus = async (newStatus: string) => {
     try {
-      const response = await fetch('http://localhost:8000/admin/update-status', {
+      const response = await fetch('http://localhost:8001/admin/update-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -117,7 +117,7 @@ export default function CaseReview() {
   };
 
   const downloadPDF = () => {
-    window.open(`http://localhost:8000/admin/export-pdf/${caseId}`, '_blank');
+    window.open(`http://localhost:8001/admin/export-pdf/${caseId}`, '_blank');
   };
 
   const updateListItem = (section: string, index: number, value: string) => {

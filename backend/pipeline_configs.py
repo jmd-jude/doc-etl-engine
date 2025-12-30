@@ -331,7 +331,7 @@ def get_pipeline_config(pipeline: str):
     Get configuration for a specific pipeline
 
     Args:
-        pipeline: One of "psych_timeline", "psych_compliance", "psych_expert_witness", "psych_full_discovery", medical_chronology"
+        pipeline: One of "psych_timeline", "psych_compliance", "psych_expert_witness", "psych_full_discovery", "medical_chronology"
 
     Returns:
         Pipeline configuration dict
