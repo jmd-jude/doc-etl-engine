@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { getPipelineName } from '@/lib/pipelines';
 
 interface Case {
   id: string;
@@ -313,7 +314,7 @@ export default function CaseReview() {
                 Case Review
               </h1>
               <p className="text-purple-200 mb-2">
-                {case_.customer_name} - {((case_ as any).pipeline || (case_ as any).domain || 'Unknown').replace('_', ' ')}
+                {case_.customer_name} - {getPipelineName((case_ as any).pipeline || (case_ as any).domain)}
               </p>
               <code className="text-sm text-purple-300 bg-white/10 px-2 py-1 rounded">
                 {case_.id}
@@ -486,8 +487,8 @@ export default function CaseReview() {
             </div>
             <div>
               <dt className="text-purple-200">Analysis Package</dt>
-              <dd className="text-white font-medium capitalize">
-                {((case_ as any).pipeline || (case_ as any).domain || 'Unknown').replace('_', ' ')}
+              <dd className="text-white font-medium">
+                {getPipelineName((case_ as any).pipeline || (case_ as any).domain)}
               </dd>
             </div>
             {case_.cost_breakdown && (

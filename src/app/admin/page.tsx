@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { getPipelineName } from '@/lib/pipelines';
 
 interface Case {
   id: string;
@@ -181,8 +182,8 @@ export default function AdminDashboard() {
                         <div className="text-sm text-gray-500">{case_.customer_email}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-gray-700 capitalize">
-                          {((case_ as any).pipeline || (case_ as any).domain || 'Unknown').replace('_', ' ')}
+                        <span className="text-sm text-gray-700">
+                          {getPipelineName((case_ as any).pipeline || (case_ as any).domain)}
                         </span>
                       </td>
                       <td className="px-6 py-4">

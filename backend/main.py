@@ -21,14 +21,6 @@ app.add_middleware(
 def read_root():
     return {"status": "Engine is purring"}
 
-@app.get("/domains")
-def list_domains():
-    """
-    Get list of available document analysis domains (DEPRECATED - use /pipelines)
-    """
-    from pipeline_configs import list_pipelines
-    return {"domains": list_pipelines()}
-
 @app.get("/pipelines")
 def list_pipelines_endpoint():
     """

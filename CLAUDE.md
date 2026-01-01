@@ -17,7 +17,7 @@ InsightStream Forensic is a legal-grade forensic psychiatry analysis system that
 - **Case Review**: `src/app/admin/review/[caseId]/page.tsx` - Individual case review with editing
 
 ### Backend (Python FastAPI)
-- **Entry Point**: `backend/main.py` - FastAPI server on port 8000
+- **Entry Point**: `backend/main.py` - FastAPI server on port 8001
 - **Core Engine**: `backend/engine.py` - DocETL pipeline orchestration
 - **Pipeline System**: `backend/pipeline_configs.py` - Multi-tier forensic psychiatry pipelines
 - **Case Management**: `backend/case_manager.py` - Persistence in `/tmp/cases/*.json`
@@ -51,7 +51,7 @@ InsightStream Forensic is a legal-grade forensic psychiatry analysis system that
 # Install dependencies
 npm install
 
-# Development server (http://localhost:3000)
+# Development server (http://localhost:3001)
 npm run dev
 
 # Production build
@@ -75,11 +75,11 @@ pip install -r backend/requirements.txt
 # Or manually install core dependencies
 pip install fastapi uvicorn docetl python-dotenv
 
-# Run backend server (http://localhost:8000)
+# Run backend server (http://localhost:8001)
 cd backend
 python main.py
 # or with uvicorn directly:
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 
 # Deactivate virtual environment
 deactivate
@@ -87,8 +87,8 @@ deactivate
 
 ### Running Both Services
 The application requires both servers running simultaneously:
-- Frontend: `npm run dev` (port 3000)
-- Backend: `python backend/main.py` (port 8000)
+- Frontend: `npm run dev` (port 3001)
+- Backend: `python backend/main.py` (port 8001)
 
 ## Key Configuration Files
 
@@ -186,9 +186,9 @@ To add a new pipeline tier (e.g., "psych_brief_screen"):
 
 **Testing backend endpoints**: Use curl or browser:
 ```bash
-curl http://localhost:8000/
-curl http://localhost:8000/pipelines
-curl -X POST http://localhost:8000/process -H "Content-Type: application/json" -d '{"records": [...], "pipeline": "psych_timeline"}'
+curl http://localhost:8001/
+curl http://localhost:8001/pipelines
+curl -X POST http://localhost:8001/process -H "Content-Type: application/json" -d '{"records": [...], "pipeline": "psych_timeline"}'
 ```
 
 ## Sample Data Format

@@ -264,17 +264,17 @@ export default function ForensicDiscovery() {
             <div>
               <h2 className="text-2xl font-semibold mb-2">Data Intake</h2>
               <p className="text-slate-400 text-sm">
-                Upload files (PDF or JSON)
+                Upload case files (JSON)
               </p>
             </div>
             <div className="flex gap-3">
-              <button
+              {/* <button
                 onClick={downloadSample}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
               >
                 <Download className="h-4 w-4" />
-                Sample JSON
-              </button>
+                Sample Data
+              </button>*/}
               <a
                 href="/admin"
                 className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors text-sm font-medium"
@@ -287,7 +287,7 @@ export default function ForensicDiscovery() {
           {/* Analysis Package Selector */}
           <div className="mb-6">
             <label className="block text-sm font-medium mb-2">
-              Analysis Package
+              Select Package
             </label>
             <select
               value={selectedPipeline}
@@ -328,7 +328,6 @@ export default function ForensicDiscovery() {
                     <div className="font-medium">Use Hybrid Mode (Premium)</div>
                     <div className="text-sm text-slate-400 mt-1">
                       Uses Claude Sonnet 4 for analysis (higher quality) and GPT-4o-mini for extraction.
-                      Cost: ~$0.60/page vs ~$0.15/page standard.
                     </div>
                   </div>
                 </label>
@@ -384,7 +383,7 @@ export default function ForensicDiscovery() {
                 <>
                   <FileJson className="h-12 w-12 text-slate-600" />
                   <div className="text-center">
-                    <p className="text-lg mb-1">Drop your JSON file here</p>
+                    <p className="text-lg mb-1">Drop your case file here</p>
                     <p className="text-sm text-slate-500">or click to browse</p>
                   </div>
                   <input
