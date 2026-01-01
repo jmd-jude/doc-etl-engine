@@ -8,6 +8,8 @@ PIPELINE_CONFIGS = {
         "name": "Basic Timeline",
         "dataset_description": "medical and psychiatric records",
         "persona": "a forensic psychiatrist reviewing records for timeline construction",
+        "extraction_model": "gpt-4o-mini",
+        "analysis_model": "gpt-4o-mini",
         "extraction_prompt": """Extract from this record:
 
 Record: {{ input }}
@@ -44,6 +46,8 @@ Return JSON with:
         "name": "Compliance Audit",
         "dataset_description": "medical and psychiatric records",
         "persona": "a forensic psychiatrist conducting compliance review",
+        "extraction_model": "gpt-4o-mini",
+        "analysis_model": "gpt-4o-mini",
         "extraction_prompt": """Extract from this record:
 
 Record: {{ input }}
@@ -98,6 +102,8 @@ Return JSON with:
         "name": "Expert Witness Package",
         "dataset_description": "medical and psychiatric records for legal proceedings",
         "persona": "a forensic psychiatrist preparing expert witness testimony",
+        "extraction_model": "gpt-4o-mini",
+        "analysis_model": "gpt-4o-mini",
         "extraction_prompt": """Extract from this record:
 
 Record: {{ input }}
@@ -162,6 +168,8 @@ Return JSON with:
         "name": "Full Discovery Analysis",
         "dataset_description": "complete psychiatric case file",
         "persona": "a senior forensic psychiatrist conducting comprehensive case review",
+        "extraction_model": "gpt-4o-mini",
+        "analysis_model": "gpt-4o-mini",
         "extraction_prompt": """Comprehensive extraction:
 
 Record: {{ input }}

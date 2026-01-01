@@ -657,7 +657,9 @@
             
             if (isDate(value)) {
                 try {
-                    const date = new Date(value);
+                    // Parse as local date to avoid timezone shift
+                    const parts = value.split('-');
+                    const date = new Date(parts[0], parts[1] - 1, parts[2]);
                     return `<span class="field-value-date">${date.toLocaleDateString('en-US', { 
                         year: 'numeric', 
                         month: 'long', 
@@ -796,9 +798,7 @@
 
             html += `
                 <div class="watermark">
-                    📄 This view automatically adapts to any JSON structure. 
-                    Original data is converted from various source formats (PDFs, Word docs, databases) 
-                    into structured JSON for processing.
+                    For demo purposes only
                 </div>
             `;
 

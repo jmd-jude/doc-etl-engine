@@ -197,9 +197,18 @@ export default function CaseReview() {
       low: 'bg-red-100 text-red-800',
     };
 
+    // If no confidence value, show "Coming Soon" with neutral styling
+    if (!confidence) {
+      return (
+        <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600 text-center">
+          Conf Rate<br />Coming Soon
+        </span>
+      );
+    }
+
     return (
       <span className={`px-2 py-1 rounded text-xs font-medium ${styles[confidence as keyof typeof styles] || styles.medium}`}>
-        {confidence || 'medium'}
+        {confidence}
       </span>
     );
   };
@@ -212,7 +221,7 @@ export default function CaseReview() {
         confidence: confidenceMatch[1].toLowerCase()
       };
     }
-    return { text, confidence: 'medium' };
+    return { text, confidence: '' };  // Return empty string when no confidence found
   };
 
   const filterItemsByConfidence = (items: string[]) => {

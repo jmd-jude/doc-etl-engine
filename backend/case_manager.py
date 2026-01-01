@@ -5,6 +5,7 @@ Handles case tracking, status updates, and data persistence
 
 import json
 import os
+from copy import deepcopy
 from datetime import datetime
 from typing import List, Dict, Optional
 
@@ -74,9 +75,8 @@ def update_case_analysis(case_id: str, analysis: Dict):
     case["status"] = "pending_review"
     case["analyzed_at"] = datetime.now().isoformat()
 
-    # Initialize edits as copy of analysis (user can modify)
-    case["edits"] = {key: list(value) if isinstance(value, list) else value
-                     for key, value in analysis.items()}
+    # Initialize edits as deep copy of analysis (user can modify without affecting original)
+    case["edits"] = deepcopy(analysis)
 
     with open(case_path, "w") as f:
         json.dump(case, f, indent=2)

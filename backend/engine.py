@@ -9,6 +9,8 @@ import threading
 
 load_dotenv()
 
+litellm.request_timeout = 300
+
 # ============= LiteLLM Cost Tracking =============
 # Thread-safe cost tracker for capturing actual LLM usage
 _cost_tracker = {
@@ -149,7 +151,7 @@ def run_forensic_pipeline(input_data, pipeline="psych_timeline", hybrid_mode=Fal
         print(f"[Pipeline] Analyzing {len(input_data)} records...")
 
         # Run the pipeline (DSLRunner processes and saves to temp file)
-        runner = DSLRunner(config=config, max_threads=4)
+        runner = DSLRunner(config=config, max_threads=4, timeout_seconds=300)
         runner.load_run_save()
 
         print(f"[Pipeline] Pipeline execution complete")
