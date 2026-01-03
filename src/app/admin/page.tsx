@@ -61,7 +61,7 @@ export default function AdminDashboard() {
 
     const labels = {
       processing: 'Processing',
-      pending_review: 'Pending Review',
+      pending_review: 'Pending',
       approved: 'Approved',
       delivered: 'Delivered',
     };

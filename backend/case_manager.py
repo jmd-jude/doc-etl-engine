@@ -53,13 +53,14 @@ def create_case(customer_name: str, customer_email: str, pipeline: str, records_
     print(f"[Case Manager] Created case {case_id} for {customer_name}")
     return case_id
 
-def update_case_analysis(case_id: str, analysis: Dict):
+def update_case_analysis(case_id: str, analysis: Dict, original_records: List[Dict] = None):
     """
     Update case with analysis results and move to pending_review status
 
     Args:
         case_id: Case ID
         analysis: Analysis results dict
+        original_records: Optional list of original source records (for provenance tracking)
     """
     ensure_cases_dir()
     case_path = os.path.join(CASES_DIR, f"{case_id}.json")
@@ -77,6 +78,11 @@ def update_case_analysis(case_id: str, analysis: Dict):
 
     # Initialize edits as deep copy of analysis (user can modify without affecting original)
     case["edits"] = deepcopy(analysis)
+
+    # Store original records for provenance tracking (view source feature)
+    if original_records is not None:
+        case["original_records"] = original_records
+        print(f"[Case Manager] Stored {len(original_records)} original source records")
 
     with open(case_path, "w") as f:
         json.dump(case, f, indent=2)

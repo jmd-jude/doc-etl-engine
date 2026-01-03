@@ -123,8 +123,8 @@ async def process_data(request: ProcessRequest):
                 print(f"  - {key}: {len(value)} items")
         print()
 
-        # Update case with analysis results
-        update_case_analysis(case_id, analysis)
+        # Update case with analysis results and original records (for provenance)
+        update_case_analysis(case_id, analysis, original_records=records)
 
         # Update case with cost data if available
         if cost_data:
