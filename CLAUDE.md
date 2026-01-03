@@ -41,8 +41,17 @@ InsightStream Forensic is a legal-grade forensic psychiatry analysis system that
 3. Backend creates case → `case_manager.py`
 4. DocETL pipeline runs → `engine.py` + `pipeline_configs.py`
 5. Analysis results stored → `/tmp/cases/{case_id}.json`
-6. Admin can edit → `src/app/admin/review/[caseId]/page.tsx`
-7. Export to PDF → `pdf_generator.py`
+   - Original AI analysis saved in `analysis` field
+   - Deep copy created in `edits` field (allows modification without affecting original)
+   - Original source records stored in `original_records` field (for provenance)
+6. Admin reviews case → `src/app/admin/review/[caseId]/page.tsx`
+   - Edit findings inline
+   - Add expert comments to document reasoning
+   - View source records for provenance
+   - See AI vs Expert comparison (side-by-side mode)
+7. Export to PDF with track changes → `pdf_generator.py`
+   - Shows which findings were AI-generated, edited, or added by expert
+   - Includes expert comments inline
 
 ## Development Commands
 
@@ -110,10 +119,82 @@ The application requires both servers running simultaneously:
 
 ### Admin Endpoints
 - `GET /admin/cases` - List all cases
-- `GET /admin/case/{case_id}` - Get case details
-- `POST /admin/update-edits` - Save edited analysis
+- `GET /admin/case/{case_id}` - Get case details (includes analysis, edits, comments, original_records)
+- `POST /admin/update-edits` - Save edited analysis and expert comments
+  - Accepts: `{ case_id, edits, comments }`
 - `POST /admin/update-status` - Update case status
-- `GET /admin/export-pdf/{case_id}` - Export case to PDF
+- `GET /admin/export-pdf/{case_id}` - Export case to PDF with track changes
+
+## Human-in-the-Loop Features
+
+### Expert Review Interface (`src/app/admin/review/[caseId]/page.tsx`)
+
+**View Modes:**
+- **AI Original** - Read-only view of pristine AI-generated analysis
+- **Expert Version** - Editable view for expert modifications (default)
+- **Side-by-Side** - Two-column comparison showing AI vs Expert changes
+  - Visual indicators: Green (added), Blue (edited), Unchanged (white)
+
+**Edit Metrics Dashboard:**
+- Automatically calculates and displays:
+  - Total AI-generated findings
+  - Findings validated unchanged (%)
+  - Findings edited by expert (%)
+  - Findings removed by expert (%)
+  - Findings added by expert
+  - Expert Enhancement Rate (% modified)
+
+**Expert Comments & Annotations:**
+- Click 💬 button next to any finding to add expert rationale
+- Comments stored separately in `comments` field: `{ [section]: { [index]: "comment text" } }`
+- Comments display inline below findings
+- Saved with case data for legal defensibility
+
+**Source Record Provenance:**
+- "View All Source Records" button shows original JSON documents
+- Modal displays all source data with dynamic rendering (works with any JSON structure)
+- Enables experts to verify AI findings against source material
+
+**Data Structure in Case JSON:**
+```json
+{
+  "analysis": { /* Original AI output */ },
+  "edits": { /* Expert-modified version */ },
+  "comments": {
+    "timeline": {
+      "0": "Changed severity based on PHQ-9 score of 22 in record PSY-2024-003",
+      "3": "Added per expert clinical judgment - not explicitly stated in records"
+    }
+  },
+  "original_records": [ /* Full source documents for provenance */ ]
+}
+```
+
+### PDF Export with Track Changes (`backend/pdf_generator.py`)
+
+**Visual Indicators in Exported PDF:**
+- ✓ = AI-Generated, validated by expert (black text)
+- ✏ = Edited by expert (blue text)
+- ✚ = Added by expert (green text)
+- 💬 = Expert comment/rationale (purple italic)
+
+**Track Changes Legend:**
+Automatically included at top of PDF when original analysis is available.
+
+**Implementation:**
+- Compares `analysis` (original) vs `edits` (modified) to detect changes
+- Renders appropriate icon and style based on change status
+- Includes expert comments inline under relevant findings
+
+**Example PDF Output:**
+```
+TIMELINE
+✓ 1. 2024-01-15: Initial evaluation showing moderate depression
+✏ 2. 2024-02-10: Follow-up evaluation showing severe depression symptoms
+    💬 Expert Note: Severity upgraded per PHQ-9 score of 22 in PSY-2024-003
+✚ 3. 2024-03-01: Medication adjustment not documented in treatment notes
+    💬 Expert Note: Gap identified through cross-referencing prescription records
+```
 
 ## Adding New Analysis Pipelines
 
@@ -184,11 +265,28 @@ To add a new pipeline tier (e.g., "psych_brief_screen"):
 
 **Adding new analysis fields**: Add to `analysis_schema` in pipeline config; frontend displays automatically
 
+**Adding new comment types or metadata**: Extend the `comments` structure in `Case` interface and `update_case_edits()` function
+
+**Customizing PDF track changes**: Modify styles and rendering logic in `pdf_generator.py`
+- Change icons: Edit `get_icon_and_style()` function
+- Modify colors: Update ParagraphStyle definitions (edited_style, added_style, etc.)
+- Add new indicators: Extend `get_change_status()` logic
+
+**Adding expert workflow features**:
+- New view modes: Add to `viewMode` state and conditional rendering in review page
+- Additional metrics: Extend `calculateEditMetrics()` function
+- Custom filters: Add to filtering logic (similar to `showOnlyLowConfidence`)
+
 **Testing backend endpoints**: Use curl or browser:
 ```bash
 curl http://localhost:8001/
 curl http://localhost:8001/pipelines
 curl -X POST http://localhost:8001/process -H "Content-Type: application/json" -d '{"records": [...], "pipeline": "psych_timeline"}'
+
+# Test with comments
+curl -X POST http://localhost:8001/admin/update-edits \
+  -H "Content-Type: application/json" \
+  -d '{"case_id": "20260103_103552", "edits": {...}, "comments": {"timeline": {"0": "Expert note"}}}'
 ```
 
 ## Sample Data Format
@@ -210,5 +308,3 @@ Psychiatric records should be JSON arrays with fields like:
   }
 ]
 ```
-
-Download sample JSON from the upload page.

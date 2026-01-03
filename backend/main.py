@@ -45,6 +45,7 @@ class ExportPDFRequest(BaseModel):
 class UpdateEditsRequest(BaseModel):
     case_id: str
     edits: dict
+    comments: Optional[dict] = None
 
 class UpdateStatusRequest(BaseModel):
     case_id: str
@@ -255,18 +256,19 @@ async def get_case_details(case_id: str):
 @app.post("/admin/update-edits")
 async def update_edits(request: UpdateEditsRequest):
     """
-    Admin endpoint: Update case edits
+    Admin endpoint: Update case edits and comments
 
     Parameters:
         case_id: Case ID
         edits: Edited analysis dict
+        comments: Expert comments dict (optional)
 
     Returns:
         Success status
     """
     try:
         from case_manager import update_case_edits
-        update_case_edits(request.case_id, request.edits)
+        update_case_edits(request.case_id, request.edits, request.comments)
         return {
             "status": "success",
             "message": f"Edits saved for case {request.case_id}"
@@ -347,12 +349,14 @@ async def export_case_pdf(case_id: str):
             "records_analyzed": case.get("records_count", 0)
         }
 
-        # Use edited version if available, otherwise use original analysis
-        analysis = case.get("edits", case.get("analysis", {}))
+        # Get both original and edited versions for track changes
+        original_analysis = case.get("analysis", {})
+        edited_analysis = case.get("edits", original_analysis)
+        comments = case.get("comments", {})
 
-        # Generate PDF
+        # Generate PDF with track changes
         output_path = f"/tmp/forensic_report_{case_id}.pdf"
-        generate_forensic_pdf(analysis, case_info, output_path)
+        generate_forensic_pdf(edited_analysis, case_info, output_path, original_analysis=original_analysis, comments=comments)
 
         return FileResponse(
             output_path,

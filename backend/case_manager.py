@@ -129,13 +129,14 @@ def list_cases() -> List[Dict]:
 
     return cases
 
-def update_case_edits(case_id: str, edits: Dict):
+def update_case_edits(case_id: str, edits: Dict, comments: Dict = None):
     """
-    Update case with edited analysis results
+    Update case with edited analysis results and expert comments
 
     Args:
         case_id: Case ID
         edits: Edited analysis dict (same structure as analysis)
+        comments: Expert comments dict (optional)
     """
     ensure_cases_dir()
     case_path = os.path.join(CASES_DIR, f"{case_id}.json")
@@ -149,6 +150,11 @@ def update_case_edits(case_id: str, edits: Dict):
 
     case["edits"] = edits
     case["last_edited"] = datetime.now().isoformat()
+
+    # Save comments if provided
+    if comments is not None:
+        case["comments"] = comments
+        print(f"[Case Manager] Updated comments for case {case_id}")
 
     with open(case_path, "w") as f:
         json.dump(case, f, indent=2)

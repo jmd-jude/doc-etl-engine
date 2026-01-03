@@ -16,6 +16,7 @@ interface Case {
   analysis: any;
   edits: any;
   original_records?: any[];
+  comments?: { [section: string]: { [index: number]: string } };
   cost_per_page?: number;
   actual_cost?: number;
   cost_breakdown?: {
@@ -42,6 +43,8 @@ export default function CaseReview() {
   const [showOnlyLowConfidence, setShowOnlyLowConfidence] = useState(false);
   const [viewSourceModalData, setViewSourceModalData] = useState<{recordIds: string[], records: any[]} | null>(null);
   const [viewMode, setViewMode] = useState<'expert' | 'ai' | 'sidebyside'>('expert');
+  const [comments, setComments] = useState<{ [section: string]: { [index: number]: string } }>({});
+  const [commentModalData, setCommentModalData] = useState<{section: string, index: number, currentComment: string} | null>(null);
 
   useEffect(() => {
     fetchCase();
@@ -55,6 +58,7 @@ export default function CaseReview() {
       if (data.status === 'success') {
         setCase(data.case);
         setEdits(data.case.edits || data.case.analysis);
+        setComments(data.case.comments || {});
       } else {
         setError(data.error || 'Failed to load case');
       }
@@ -76,13 +80,14 @@ export default function CaseReview() {
         body: JSON.stringify({
           case_id: caseId,
           edits: edits,
+          comments: comments,
         }),
       });
 
       const data = await response.json();
 
       if (data.status === 'success') {
-        setSaveMessage('Edits saved successfully!');
+        setSaveMessage('Edits and comments saved successfully!');
         setTimeout(() => setSaveMessage(''), 3000);
       } else {
         setError(data.error || 'Failed to save edits');
@@ -321,6 +326,37 @@ export default function CaseReview() {
       const { confidence } = extractConfidenceFromText(item);
       return confidence === 'low';
     });
+  };
+
+  const getComment = (section: string, index: number): string => {
+    return comments[section]?.[index] || '';
+  };
+
+  const hasComment = (section: string, index: number): boolean => {
+    return !!comments[section]?.[index];
+  };
+
+  const openCommentModal = (section: string, index: number) => {
+    const currentComment = getComment(section, index);
+    setCommentModalData({ section, index, currentComment });
+  };
+
+  const saveComment = (section: string, index: number, comment: string) => {
+    const newComments = { ...comments };
+    if (!newComments[section]) {
+      newComments[section] = {};
+    }
+    if (comment.trim()) {
+      newComments[section][index] = comment;
+    } else {
+      // Remove comment if empty
+      delete newComments[section][index];
+      if (Object.keys(newComments[section]).length === 0) {
+        delete newComments[section];
+      }
+    }
+    setComments(newComments);
+    setCommentModalData(null);
   };
 
   const getSectionTitle = (key: string) => {
@@ -750,8 +786,29 @@ export default function CaseReview() {
                                     className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 min-h-[80px] font-mono text-sm"
                                   />
                                 )}
-                                {getConfidenceBadge(confidence)}
+                                <div className="flex flex-col gap-2">
+                                  {getConfidenceBadge(confidence)}
+                                  {!isReadOnly && (
+                                    <button
+                                      onClick={() => openCommentModal(section, actualIndex)}
+                                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                        hasComment(section, actualIndex)
+                                          ? 'bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200'
+                                          : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                                      }`}
+                                      title={hasComment(section, actualIndex) ? 'Edit comment' : 'Add comment'}
+                                    >
+                                      💬 {hasComment(section, actualIndex) ? 'Edit' : 'Add'}
+                                    </button>
+                                  )}
+                                </div>
                               </div>
+                              {!isReadOnly && hasComment(section, actualIndex) && (
+                                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm">
+                                  <div className="font-semibold text-purple-700 mb-1 text-xs">Expert Comment:</div>
+                                  <div className="text-gray-700 whitespace-pre-wrap">{getComment(section, actualIndex)}</div>
+                                </div>
+                              )}
                             {/* Per-finding source lineage (only shows if DocETL lineage tracking is enabled) */}
                             {case_.analysis && (case_.analysis as any).forensic_audit_lineage && (
                               <div className="text-xs bg-gray-50 px-3 py-2 rounded border border-gray-200 flex items-center justify-between">
@@ -919,6 +976,76 @@ export default function CaseReview() {
                   className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Comment Modal */}
+        {commentModalData && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => setCommentModalData(null)}
+          >
+            <div
+              className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-purple-600 to-blue-600 px-6 py-4 flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white">
+                  💬 Expert Comment
+                </h3>
+                <button
+                  onClick={() => setCommentModalData(null)}
+                  className="text-white hover:text-gray-200 text-2xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6">
+                <div className="mb-4">
+                  <div className="text-sm text-gray-600 mb-2">
+                    Section: <span className="font-semibold">{getSectionTitle(commentModalData.section)}</span>
+                    {' • '}
+                    Item #{commentModalData.index + 1}
+                  </div>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700 mb-4">
+                    {edits[commentModalData.section]?.[commentModalData.index] || '(No content)'}
+                  </div>
+                </div>
+
+                <label className="block mb-2 text-sm font-semibold text-gray-700">
+                  Expert Comment / Rationale:
+                </label>
+                <textarea
+                  value={commentModalData.currentComment}
+                  onChange={(e) => setCommentModalData({ ...commentModalData, currentComment: e.target.value })}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 min-h-[120px] font-mono text-sm"
+                  placeholder="Explain why you made changes, reference source records, note clinical reasoning, etc..."
+                />
+
+                <div className="text-xs text-gray-500 mt-2 italic">
+                  💡 Tip: Reference specific records, cite clinical guidelines, or explain diagnostic reasoning
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 flex gap-3 justify-end">
+                <button
+                  onClick={() => setCommentModalData(null)}
+                  className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => saveComment(commentModalData.section, commentModalData.index, commentModalData.currentComment)}
+                  className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                >
+                  Save Comment
                 </button>
               </div>
             </div>
