@@ -566,9 +566,9 @@ export default function ForensicDiscovery() {
       {/* Footer */}
       <footer className="border-t border-slate-800/50 mt-20">
         <div className="max-w-7xl mx-auto px-6 py-6 text-center text-sm text-slate-500">
-          <p>FPA Med - ChronoScope - Medical Chronology AI</p>
+          <p>ChronoScope - Medical Chronologies</p>
           <p className="mt-1 font-[var(--font-geist-mono)] text-xs">
-            Powered by DocETL • FPAMed
+            Powered by 241 • for FPAMed
           </p>
         </div>
       </footer>

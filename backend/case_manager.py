@@ -1,5 +1,5 @@
 """
-Case Management System for InsightStream Forensic
+Doc Processing System using DocETL
 Handles case tracking, status updates, and data persistence
 """
 

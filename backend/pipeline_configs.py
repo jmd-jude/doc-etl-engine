@@ -269,6 +269,7 @@ Record: {{ input }}
 
 Return JSON with:
 - date: Record date (YYYY-MM-DD format)
+- record_id: Record ID or identifier if mentioned (or use date as fallback)
 - provider: Physician or facility name
 - event_type: (visit, procedure, test, medication, hospitalization, discharge)
 - event_description: One to two sentence summary of the event
@@ -303,7 +304,7 @@ Return JSON with the original fields plus updated confidence field.
 
 CHRONOLOGY RECORDS:
 {% for record in inputs %}
-{{ record.date }}: [{{ record.event_type }}] {{ record.event_description }} (Provider: {{ record.provider }}) [Confidence: {{ record.confidence }}]
+{{ record.date }} ({{ record.record_id }}): [{{ record.event_type }}] {{ record.event_description }} (Provider: {{ record.provider }}) [Confidence: {{ record.confidence }}]
 {% if record.diagnosis %}Diagnosis: {{ record.diagnosis }}{% endif %}
 {% endfor %}
 
@@ -311,14 +312,25 @@ CRITICAL ANALYSIS TASKS:
   1. Create chronology list in format above
   2. IMPORTANT: Identify ALL gaps in care >30 days between consecutive dates
   3. IMPORTANT: Identify contradictory diagnoses, medication interactions, treatment delays
+  4. RED FLAG ANALYSIS (CRITICAL FOR LEGAL REVIEW):
+  Identify issues with legal significance. For each red flag, specify:
+  - Category: medication_error, diagnostic_contradiction, treatment_delay, documentation_gap, standard_of_care_deviation, adverse_event
+  - Specific issue description
+  - Record IDs and dates involved
+  - Legal relevance (high/medium/low)
+
+  Examples:
+  - "Medication Error: Warfarin prescribed without baseline INR or PT monitoring (Records: RX-2024-01, LAB-2024-05, Dates: 2024-01-15 to 2024-03-30) [Legal Relevance: high]"
+  - "Diagnostic Contradiction: Initial diagnosis of Type 2 Diabetes (Dr. Smith, 2024-01-10) contradicts later diagnosis of Type 1 Diabetes (Dr. Jones, 2024-02-15) with no documentation of re-evaluation (Records: VISIT-001, VISIT-008) [Legal Relevance: medium]"
 
 Return JSON with:
 - chronology: List of chronological events with format "YYYY-MM-DD: [Event Type] - Event description (Provider: X) [Confidence: high/medium/low]"
 - missing_records: Gaps in care >30 days REQUIRED (format "Gap detected: YYYY-MM-DD to YYYY-MM-DD (X days) [Confidence: high/medium/low]")
-- red_flags: Issues found REQUIRED (format "Issue description [Confidence: high/medium/low])"
+- red_flags: List of red flags with format "Category: [category] | Issue: [description] | Records/Dates: [citations] | Legal Relevance: [high/medium/low]"
 """,
         "output_schema": {
             "date": "string",
+            "record_id": "string",
             "provider": "string",
             "event_type": "string",
             "event_description": "string",

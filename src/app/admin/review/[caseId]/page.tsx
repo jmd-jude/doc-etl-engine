@@ -516,7 +516,7 @@ export default function CaseReview() {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                Expert Version
+                Expert's Editor
               </button>
               <button
                 onClick={() => setViewMode('sidebyside')}
@@ -827,7 +827,8 @@ export default function CaseReview() {
                               </div>
                             )}
                             </div>
-                            {!isReadOnly && (
+                            {/* DELETE BADGE TEMPORARILY DISABLED - causes weirdness in editing/side-by-side views */}
+                            {/* {!isReadOnly && (
                               <button
                                 onClick={() => removeListItem(section, actualIndex)}
                                 className="flex-shrink-0 w-8 h-8 bg-red-100 hover:bg-red-200 text-red-700 rounded-full flex items-center justify-center transition-colors"
@@ -835,7 +836,7 @@ export default function CaseReview() {
                               >
                                 ×
                               </button>
-                            )}
+                            )} */}
                           </div>
                         );
                       })
