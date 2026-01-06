@@ -243,6 +243,51 @@ def generate_forensic_pdf(analysis, case_info, output_path, original_analysis=No
         'damages_assessment': ('DAMAGES ASSESSMENT', body_style, '●'),
     }
 
+    # Helper function to format structured objects for PDF
+    def format_item_for_pdf(item):
+        """Format structured objects (dicts) into readable text"""
+        if isinstance(item, dict):
+            # For structured objects like contradictions, red flags, etc.
+            parts = []
+
+            # Priority fields to show first
+            priority_fields = ['description', 'issue', 'topic', 'category', 'reason']
+            metadata_fields = ['records', 'legal_relevance', 'severity']
+
+            # Add main content fields
+            for field in priority_fields:
+                if field in item:
+                    parts.append(str(item[field]))
+
+            # Add other fields (except metadata)
+            for key, value in item.items():
+                if key not in priority_fields and key not in metadata_fields:
+                    if isinstance(value, (list, dict)):
+                        parts.append(f"{key.replace('_', ' ').title()}: {value}")
+                    else:
+                        parts.append(str(value))
+
+            # Add metadata at the end
+            metadata = []
+            if 'category' in item:
+                metadata.append(f"[{item['category']}]")
+            if 'severity' in item:
+                metadata.append(f"[{item['severity'].upper()}]")
+            if 'legal_relevance' in item:
+                metadata.append(f"[Legal: {item['legal_relevance'].upper()}]")
+            if 'records' in item:
+                records = item['records'] if isinstance(item['records'], list) else [item['records']]
+                metadata.append(f"(Records: {', '.join(records)})")
+
+            result = ' | '.join(parts)
+            if metadata:
+                result += ' ' + ' '.join(metadata)
+
+            return result
+        else:
+            # Plain string item
+            return str(item)
+
     for key, (title, style, icon) in critical_sections.items():
         if key in analysis and analysis[key]:
             story.append(Paragraph(title, section_header_style))
@@ -252,12 +297,15 @@ def generate_forensic_pdf(analysis, case_info, output_path, original_analysis=No
                 # Get appropriate icon and style based on change status
                 change_icon, change_style = get_icon_and_style(key, i, style, icon)
 
-                # Add the finding with change indicator
-                story.append(Paragraph(f"{change_icon} {i+1}. {item}", change_style))
+                # Format item for display
+                formatted_item = format_item_for_pdf(item)
 
-                # Add expert comment if exists
-                if comments and key in comments and i in comments[key]:
-                    comment_text = comments[key][i]
+                # Add the finding with change indicator
+                story.append(Paragraph(f"{change_icon} {i+1}. {formatted_item}", change_style))
+
+                # Add expert comment if exists (JSON stores indices as strings)
+                if comments and key in comments and str(i) in comments[key]:
+                    comment_text = comments[key][str(i)]
                     story.append(Paragraph(f"💬 <i>Expert Note: {comment_text}</i>", comment_style))
 
             story.append(Spacer(1, 0.2*inch))
