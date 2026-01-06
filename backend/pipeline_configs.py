@@ -10,6 +10,15 @@ PIPELINE_CONFIGS = {
         "persona": "a forensic psychiatrist reviewing records for timeline construction",
         "extraction_model": "gpt-4o-mini",
         "analysis_model": "gpt-4o-mini",
+        "fold_batch_size": 100,  # Process 100 records per fold iteration
+        "num_retries_on_validate_failure": 2,  # Retry twice on validation failure
+        "extraction_validation": [
+            'output["date"] != ""'  # Only enforce date presence (critical for chronology)
+            # Removed strict validations to prevent data loss during demos
+        ],
+        "analysis_validation": [
+            'len(output["timeline"]) >= 1'  # At least one timeline entry required
+        ],
         "extraction_prompt": """Extract from this record:
 
 Record: {{ input }}
@@ -29,6 +38,28 @@ Return JSON with:
 Return JSON with:
 - timeline: List of chronological events (include date at start of each)
 - treatment_gaps: Periods >60 days without documented care
+""",
+        "fold_prompt": """You are continuing a psychiatric timeline analysis. You have partial results and new records to incorporate.
+
+PREVIOUS ANALYSIS (based on earlier records):
+Timeline entries: {{ output.timeline | length }} events
+{% if output.treatment_gaps %}Treatment gaps identified: {{ output.treatment_gaps | length }}{% endif %}
+
+NEW RECORDS TO INCORPORATE ({{ inputs | length }} additional records):
+{% for record in inputs %}
+{{ record.date }}: [{{ record.event_type }}] {{ record.summary }}
+{% endfor %}
+
+TASK: Create a COMPLETE psychiatric timeline covering ALL records (previous + new).
+
+CRITICAL REQUIREMENTS:
+1. Merge new records into complete chronological timeline
+2. Re-analyze ALL treatment gaps >60 days across the ENTIRE timeline
+3. Output must be a clean, standalone timeline - do NOT mention "updated", "added", or reference the incremental process
+
+Return JSON with:
+- timeline: COMPLETE list of ALL chronological events (previous + new, sorted by date)
+- treatment_gaps: ALL gaps >60 days across entire timeline
 """,
         "output_schema": {
             "date": "string",
@@ -260,9 +291,13 @@ Return JSON with all fields from expert witness tier PLUS:
     "medical_chronology": {
         "name": "Medical Chronology",
         "dataset_description": "medical records from various healthcare providers",
-        "persona": "a medical chronologist preparing records for legal review",
+        "persona": "a medical chronologist extracting structured data from records",
         "extraction_model": "gpt-4o-mini",  # Model for extraction phase
-        "analysis_model": "gpt-4o-mini",    # Model for analysis phase (can be changed to claude-sonnet-4-20250514 for higher quality)
+        "num_retries_on_validate_failure": 2,  # Retry twice on validation failure
+        "extraction_validation": [
+            'output["date"] != ""',  # Enforce date presence (critical for chronology)
+            'output["record_id"] != ""'  # Enforce record_id for de-duplication
+        ],
         "extraction_prompt": """Extract from this medical record:
 
 Record: {{ input }}
@@ -300,34 +335,6 @@ Assign confidence level:
 Return JSON with the original fields plus updated confidence field.
 """
         },
-        "analysis_prompt": """Create chronological medical timeline and analyze for gaps:
-
-CHRONOLOGY RECORDS:
-{% for record in inputs %}
-{{ record.date }} ({{ record.record_id }}): [{{ record.event_type }}] {{ record.event_description }} (Provider: {{ record.provider }}) [Confidence: {{ record.confidence }}]
-{% if record.diagnosis %}Diagnosis: {{ record.diagnosis }}{% endif %}
-{% endfor %}
-
-CRITICAL ANALYSIS TASKS:
-  1. Create chronology list in format above
-  2. IMPORTANT: Identify ALL gaps in care >30 days between consecutive dates
-  3. IMPORTANT: Identify contradictory diagnoses, medication interactions, treatment delays
-  4. RED FLAG ANALYSIS (CRITICAL FOR LEGAL REVIEW):
-  Identify issues with legal significance. For each red flag, specify:
-  - Category: medication_error, diagnostic_contradiction, treatment_delay, documentation_gap, standard_of_care_deviation, adverse_event
-  - Specific issue description
-  - Record IDs and dates involved
-  - Legal relevance (high/medium/low)
-
-  Examples:
-  - "Medication Error: Warfarin prescribed without baseline INR or PT monitoring (Records: RX-2024-01, LAB-2024-05, Dates: 2024-01-15 to 2024-03-30) [Legal Relevance: high]"
-  - "Diagnostic Contradiction: Initial diagnosis of Type 2 Diabetes (Dr. Smith, 2024-01-10) contradicts later diagnosis of Type 1 Diabetes (Dr. Jones, 2024-02-15) with no documentation of re-evaluation (Records: VISIT-001, VISIT-008) [Legal Relevance: medium]"
-
-Return JSON with:
-- chronology: List of chronological events with format "YYYY-MM-DD: [Event Type] - Event description (Provider: X) [Confidence: high/medium/low]"
-- missing_records: Gaps in care >30 days REQUIRED (format "Gap detected: YYYY-MM-DD to YYYY-MM-DD (X days) [Confidence: high/medium/low]")
-- red_flags: List of red flags with format "Category: [category] | Issue: [description] | Records/Dates: [citations] | Legal Relevance: [high/medium/low]"
-""",
         "output_schema": {
             "date": "string",
             "record_id": "string",
@@ -336,12 +343,9 @@ Return JSON with:
             "event_description": "string",
             "diagnosis": "string",
             "confidence": "string"
-        },
-        "analysis_schema": {
-            "chronology": "list[str]",
-            "missing_records": "list[str]",
-            "red_flags": "list[str]"
         }
+        # Note: No analysis_schema - chronology assembly happens in Python (engine.py)
+        # This avoids LLM hallucinations in fold operations and ensures perfect data integrity
     }
 }
 
@@ -373,7 +377,12 @@ def list_pipelines():
     Returns:
         List of pipeline names and their human-readable titles
     """
+    # MVP: Only expose medical_chronology and psych_timeline
+    # Other pipelines remain in codebase for future roadmap
+    MVP_PIPELINES = ["medical_chronology", "psych_timeline"]
+
     return [
         {"id": pipeline_id, "name": config["name"]}
         for pipeline_id, config in PIPELINE_CONFIGS.items()
+        if pipeline_id in MVP_PIPELINES
     ]

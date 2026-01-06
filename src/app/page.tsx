@@ -71,7 +71,7 @@ export default function ForensicDiscovery() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [caseId, setCaseId] = useState<string | null>(null);
   const [availablePipelines, setAvailablePipelines] = useState<Array<{id: string; name: string}>>([]);
-  const [selectedPipeline, setSelectedPipeline] = useState('psych_timeline');
+  const [selectedPipeline, setSelectedPipeline] = useState('medical_chronology'); // Default to Medical Chronology
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [useHybridMode, setUseHybridMode] = useState(false);
 
@@ -83,7 +83,12 @@ export default function ForensicDiscovery() {
         const data = await response.json();
         if (data.pipelines && data.pipelines.length > 0) {
           setAvailablePipelines(data.pipelines);
-          setSelectedPipeline(data.pipelines[0].id);
+          // Keep medical_chronology as default (don't override with first item)
+          // Only set if current selection doesn't exist in loaded pipelines
+          const currentExists = data.pipelines.some((p: {id: string}) => p.id === 'medical_chronology');
+          if (!currentExists && data.pipelines.length > 0) {
+            setSelectedPipeline(data.pipelines[0].id);
+          }
         }
       } catch (err) {
         console.error('Failed to load pipelines:', err);
@@ -232,7 +237,7 @@ export default function ForensicDiscovery() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-8 w-1 bg-emerald-500 rounded-full"></div>
-            <h1 className="text-xl font-semibold tracking-tight">FPA Med - ChronoScope - Medical Chronology AI</h1>
+            <h1 className="text-xl font-semibold tracking-tight">ChronoScope - Medical Chronologies by FPA Med</h1>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <span className="text-slate-400">System Status</span>
@@ -325,9 +330,9 @@ export default function ForensicDiscovery() {
                     className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-700 text-emerald-600 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <div>
-                    <div className="font-medium">Use Hybrid Mode (Premium)</div>
+                    <div className="font-medium">Enable Multi-Model Mode</div>
                     <div className="text-sm text-slate-400 mt-1">
-                      Uses Claude Sonnet 4 for analysis (higher quality) and GPT-4o-mini for extraction.
+                      Uses GPT-4o-mini for data extraction and Claude Sonnet 4 for data analysis.
                     </div>
                   </div>
                 </label>

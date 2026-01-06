@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { getPipelineName } from '@/lib/pipelines';
 
 interface Case {
@@ -41,6 +42,8 @@ export default function CaseReview() {
   const [error, setError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
   const [showOnlyLowConfidence, setShowOnlyLowConfidence] = useState(false);
+  const [showMetricsSummary, setShowMetricsSummary] = useState(false); // Collapsed by default
+  const [showConfidenceSummary, setShowConfidenceSummary] = useState(false); // Collapsed by default
   const [viewSourceModalData, setViewSourceModalData] = useState<{recordIds: string[], records: any[]} | null>(null);
   const [viewMode, setViewMode] = useState<'expert' | 'ai' | 'sidebyside'>('expert');
   const [comments, setComments] = useState<{ [section: string]: { [index: number]: string } }>({});
@@ -233,6 +236,71 @@ export default function CaseReview() {
     return { text, confidence: '' };  // Return empty string when no confidence found
   };
 
+  // Helper to check if chronology item is structured object (new format) or string (legacy)
+  const isStructuredChronologyItem = (item: any): boolean => {
+    return typeof item === 'object' && item !== null && 'record_id' in item;
+  };
+
+  // Helper to get confidence from structured or legacy chronology item
+  const getChronologyConfidence = (item: any): string => {
+    // Safety check: ensure item is valid
+    if (!item) return '';
+
+    if (isStructuredChronologyItem(item)) {
+      return item.confidence || '';
+    }
+
+    // Only call extractConfidenceFromText if item is a string
+    if (typeof item === 'string') {
+      const { confidence } = extractConfidenceFromText(item);
+      return confidence;
+    }
+
+    return '';
+  };
+
+  // Helper to format structured chronology item for display
+  const formatStructuredChronologyItem = (item: any): string => {
+    if (!isStructuredChronologyItem(item)) return item; // Legacy string format
+
+    const parts = [
+      `${item.date}:`,
+      `[${item.event_type}]`,
+      item.event_description,
+      `(Provider: ${item.provider})`,
+    ];
+    if (item.diagnosis && item.diagnosis.trim()) {
+      parts.push(`| Diagnosis: ${item.diagnosis}`);
+    }
+    parts.push(`[Confidence: ${item.confidence}]`);
+    return parts.join(' ');
+  };
+
+  const calculateConfidenceStats = () => {
+    let high = 0, medium = 0, low = 0, noConfidence = 0;
+
+    if (!edits) return { high, medium, low, noConfidence, total: 0, hasConfidenceScores: false };
+
+    // Count across all sections with confidence scores
+    const sectionsToCheck = ['chronology', 'missing_records', 'red_flags'];
+    sectionsToCheck.forEach(section => {
+      if (Array.isArray(edits[section])) {
+        edits[section].forEach((item: any) => {
+          const confidence = getChronologyConfidence(item);
+          if (confidence === 'high') high++;
+          else if (confidence === 'medium') medium++;
+          else if (confidence === 'low') low++;
+          else noConfidence++;
+        });
+      }
+    });
+
+    const total = high + medium + low + noConfidence;
+    const hasConfidenceScores = high + medium + low > 0;
+
+    return { high, medium, low, noConfidence, total, hasConfidenceScores };
+  };
+
   const openSourceModal = (recordIds: string[]) => {
     if (!case_?.original_records) {
       alert('Original source records not available for this case');
@@ -320,10 +388,10 @@ export default function CaseReview() {
     return 'unchanged';
   };
 
-  const filterItemsByConfidence = (items: string[]) => {
+  const filterItemsByConfidence = (items: any[]) => {
     if (!showOnlyLowConfidence) return items;
     return items.filter(item => {
-      const { confidence } = extractConfidenceFromText(item);
+      const confidence = getChronologyConfidence(item);
       return confidence === 'low';
     });
   };
@@ -538,12 +606,18 @@ export default function CaseReview() {
           if (!metrics) return null;
 
           return (
-            <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl shadow-lg p-6">
-              <div className="flex items-center mb-4">
+            <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl shadow-lg overflow-hidden">
+              <button
+                onClick={() => setShowMetricsSummary(!showMetricsSummary)}
+                className="w-full flex items-center justify-between p-6 hover:bg-purple-100/50 transition-colors"
+              >
                 <h3 className="text-lg font-bold text-gray-800">Expert Review Summary</h3>
-              </div>
+                {showMetricsSummary ? <ChevronUp className="h-5 w-5 text-gray-600" /> : <ChevronDown className="h-5 w-5 text-gray-600" />}
+              </button>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+              {showMetricsSummary && (
+                <div className="px-6 pb-6">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                 <div className="bg-white rounded-lg p-3 border border-gray-200">
                   <div className="text-2xl font-bold text-purple-600">{metrics.totalAI}</div>
                   <div className="text-sm text-gray-600">AI-Generated Findings</div>
@@ -590,9 +664,59 @@ export default function CaseReview() {
                 </div>
               </div>
 
-              <div className="text-xs text-gray-600 italic">
-                Expert enhancement rate = (edited + removed + added) / total AI findings
+                  <div className="text-xs text-gray-600 italic">
+                    Expert enhancement rate = (edited + removed + added) / total AI findings
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Confidence Score Summary */}
+        {(() => {
+          const stats = calculateConfidenceStats();
+          if (!stats.hasConfidenceScores) return null;
+
+          return (
+            <div className="mb-6 bg-white rounded-xl shadow-lg overflow-hidden">
+              <button
+                onClick={() => setShowConfidenceSummary(!showConfidenceSummary)}
+                className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors"
+              >
+                <h3 className="text-lg font-semibold text-gray-800">Confidence Score Distribution</h3>
+                {showConfidenceSummary ? <ChevronUp className="h-5 w-5 text-gray-600" /> : <ChevronDown className="h-5 w-5 text-gray-600" />}
+              </button>
+
+              {showConfidenceSummary && (
+                <div className="px-6 pb-6">
+                  <div className="grid grid-cols-4 gap-4">
+                <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 text-center">
+                  <div className="text-3xl font-bold text-green-700">{stats.high}</div>
+                  <div className="text-sm text-green-600 mt-1">High Confidence</div>
+                  <div className="text-xs text-gray-500 mt-1">{stats.total > 0 ? Math.round((stats.high / stats.total) * 100) : 0}%</div>
+                </div>
+                <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 text-center">
+                  <div className="text-3xl font-bold text-yellow-700">{stats.medium}</div>
+                  <div className="text-sm text-yellow-600 mt-1">Medium Confidence</div>
+                  <div className="text-xs text-gray-500 mt-1">{stats.total > 0 ? Math.round((stats.medium / stats.total) * 100) : 0}%</div>
+                </div>
+                <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 text-center">
+                  <div className="text-3xl font-bold text-red-700">{stats.low}</div>
+                  <div className="text-sm text-red-600 mt-1">Low Confidence</div>
+                  <div className="text-xs text-gray-500 mt-1">{stats.total > 0 ? Math.round((stats.low / stats.total) * 100) : 0}%</div>
+                </div>
+                <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4 text-center">
+                  <div className="text-3xl font-bold text-gray-700">{stats.total}</div>
+                  <div className="text-sm text-gray-600 mt-1">Total Findings</div>
+                  <div className="text-xs text-gray-500 mt-1">All sections</div>
+                </div>
               </div>
+                  <p className="text-xs text-gray-600 mt-4 text-center">
+                    Focus expert review on the <span className="font-semibold text-red-600">{stats.low} low confidence</span> items for maximum efficiency
+                  </p>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -663,7 +787,19 @@ export default function CaseReview() {
                               {aiItem ? (
                                 <div className={changeStatus === 'removed' ? 'line-through text-gray-400' : 'text-gray-700'}>
                                   <span className="text-xs font-bold text-gray-500">#{idx + 1}</span>
-                                  <div className="text-sm mt-1">{aiItem}</div>
+                                  {isStructuredChronologyItem(aiItem) ? (
+                                    <div className="text-sm mt-1">
+                                      <div className="font-semibold">{aiItem.date} - {aiItem.event_type}</div>
+                                      <div className="text-xs text-gray-500 mb-1">📋 {aiItem.record_id}</div>
+                                      <div>{aiItem.event_description}</div>
+                                      <div className="text-xs text-gray-600 mt-1">
+                                        Provider: {aiItem.provider}
+                                        {aiItem.diagnosis && aiItem.diagnosis.trim() && ` | Diagnosis: ${aiItem.diagnosis}`}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="text-sm mt-1">{aiItem}</div>
+                                  )}
                                 </div>
                               ) : (
                                 <div className="text-gray-400 italic text-sm text-center py-4">
@@ -697,7 +833,19 @@ export default function CaseReview() {
                                       <span className="text-xs font-semibold text-blue-600">EDITED</span>
                                     )}
                                   </div>
-                                  <div className="text-sm text-gray-700">{expertItem}</div>
+                                  {isStructuredChronologyItem(expertItem) ? (
+                                    <div className="text-sm">
+                                      <div className="font-semibold">{expertItem.date} - {expertItem.event_type}</div>
+                                      <div className="text-xs text-gray-500 mb-1">📋 {expertItem.record_id}</div>
+                                      <div>{expertItem.event_description}</div>
+                                      <div className="text-xs text-gray-600 mt-1">
+                                        Provider: {expertItem.provider}
+                                        {expertItem.diagnosis && expertItem.diagnosis.trim() && ` | Diagnosis: ${expertItem.diagnosis}`}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="text-sm text-gray-700">{expertItem}</div>
+                                  )}
                                 </div>
                               ) : (
                                 <div className="text-gray-400 italic text-sm text-center py-4">
@@ -762,9 +910,15 @@ export default function CaseReview() {
                         No low confidence items in this section
                       </div>
                     ) : (
-                      displayItems.map((item: string) => {
+                      displayItems.map((item: any) => {
                         const actualIndex = dataSource[section].indexOf(item);
-                        const { confidence } = extractConfidenceFromText(item);
+                        const confidence = getChronologyConfidence(item);
+                        const isStructured = isStructuredChronologyItem(item);
+
+                        // For display purposes, format structured items
+                        const displayText = isStructured ? formatStructuredChronologyItem(item) : item;
+                        // For editing, use JSON string for structured items
+                        const editValue = isStructured ? JSON.stringify(item, null, 2) : item;
 
                         return (
                           <div key={actualIndex} className="flex gap-2">
@@ -774,15 +928,48 @@ export default function CaseReview() {
                               {actualIndex + 1}
                             </div>
                             <div className="flex-1 space-y-2">
+                              {/* Show record_id badge for structured chronology */}
+                              {isStructured && (
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded">
+                                    📋 {item.record_id}
+                                  </span>
+                                  <span className="text-xs text-gray-500">Record ID</span>
+                                </div>
+                              )}
                               <div className="flex items-start gap-2">
                                 {isReadOnly ? (
-                                  <div className="flex-1 p-3 bg-gray-50 border border-gray-300 rounded-lg min-h-[80px] font-mono text-sm text-gray-700">
-                                    {item}
+                                  <div className="flex-1 p-3 bg-gray-50 border border-gray-300 rounded-lg min-h-[80px] font-mono text-sm text-gray-700 whitespace-pre-wrap">
+                                    {isStructured ? (
+                                      // Display structured chronology in readable format
+                                      <div className="space-y-1">
+                                        <div className="font-semibold text-gray-800">{item.date} - {item.event_type}</div>
+                                        <div>{item.event_description}</div>
+                                        <div className="text-xs text-gray-600">
+                                          Provider: {item.provider}
+                                          {item.diagnosis && item.diagnosis.trim() && ` | Diagnosis: ${item.diagnosis}`}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      displayText
+                                    )}
                                   </div>
                                 ) : (
                                   <textarea
-                                    value={item}
-                                    onChange={(e) => updateListItem(section, actualIndex, e.target.value)}
+                                    value={editValue}
+                                    onChange={(e) => {
+                                      // For structured items, parse JSON; for strings, use as-is
+                                      if (isStructured) {
+                                        try {
+                                          const parsed = JSON.parse(e.target.value);
+                                          updateListItem(section, actualIndex, parsed);
+                                        } catch {
+                                          // Invalid JSON, don't update yet
+                                        }
+                                      } else {
+                                        updateListItem(section, actualIndex, e.target.value);
+                                      }
+                                    }}
                                     className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 min-h-[80px] font-mono text-sm"
                                   />
                                 )}
@@ -1015,7 +1202,24 @@ export default function CaseReview() {
                     Item #{commentModalData.index + 1}
                   </div>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700 mb-4">
-                    {edits[commentModalData.section]?.[commentModalData.index] || '(No content)'}
+                    {(() => {
+                      const item = edits[commentModalData.section]?.[commentModalData.index];
+                      if (!item) return '(No content)';
+                      if (isStructuredChronologyItem(item)) {
+                        return (
+                          <div>
+                            <div className="font-semibold">{item.date} - {item.event_type}</div>
+                            <div className="text-xs text-gray-500">📋 {item.record_id}</div>
+                            <div className="mt-1">{item.event_description}</div>
+                            <div className="text-xs text-gray-600 mt-1">
+                              Provider: {item.provider}
+                              {item.diagnosis && item.diagnosis.trim() && ` | Diagnosis: ${item.diagnosis}`}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return item;
+                    })()}
                   </div>
                 </div>
 
