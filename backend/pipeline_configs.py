@@ -73,62 +73,6 @@ Return JSON with:
         }
     },
 
-    "psych_compliance": {
-        "name": "Compliance Audit",
-        "dataset_description": "medical and psychiatric records",
-        "persona": "a forensic psychiatrist conducting compliance review",
-        "extraction_model": "gpt-4o-mini",
-        "analysis_model": "gpt-4o-mini",
-        "extraction_prompt": """Extract from this record:
-
-Record: {{ input }}
-
-Return JSON with:
-- date: Record date
-- record_id: Record ID if available
-- diagnoses: List of diagnoses mentioned
-- medications: List of medications with doses
-- treatment_plan: Treatment recommendations made
-- safety_assessments: Any suicide/violence risk assessments
-- informed_consent: Documentation of consent procedures
-""",
-        "analysis_prompt": """Audit records for psychiatric care compliance:
-
-{% for record in inputs %}
-Date {{ record.date }} ({{ record.record_id }}):
-Diagnoses: {{ record.diagnoses }}
-Medications: {{ record.medications }}
-Treatment Plan: {{ record.treatment_plan }}
-Safety: {{ record.safety_assessments }}
-Consent: {{ record.informed_consent }}
----
-{% endfor %}
-
-Return JSON with:
-- timeline: Chronological events with dates
-- treatment_gaps: Missing follow-up or care gaps
-- medication_adherence: Prescribed vs documented administration, cite record IDs
-- safety_documentation: Gaps in risk assessments, cite record IDs
-- consent_issues: Missing or inadequate consent documentation
-""",
-        "output_schema": {
-            "date": "string",
-            "record_id": "string",
-            "diagnoses": "list[str]",
-            "medications": "list[str]",
-            "treatment_plan": "string",
-            "safety_assessments": "string",
-            "informed_consent": "string"
-        },
-        "analysis_schema": {
-            "timeline": "list[str]",
-            "treatment_gaps": "list[str]",
-            "medication_adherence": "list[str]",
-            "safety_documentation": "list[str]",
-            "consent_issues": "list[str]"
-        }
-    },
-
     "psych_expert_witness": {
         "name": "Expert Witness Package",
         "dataset_description": "medical and psychiatric records for legal proceedings",
@@ -195,104 +139,78 @@ Return JSON with:
         }
     },
 
-    "psych_full_discovery": {
-        "name": "Full Discovery Analysis",
-        "dataset_description": "complete psychiatric case file",
-        "persona": "a senior forensic psychiatrist conducting comprehensive case review",
-        "extraction_model": "gpt-4o-mini",
-        "analysis_model": "gpt-4o-mini",
-        "extraction_prompt": """Comprehensive extraction:
+    "test_structured": {
+      "name": "Test: Structured Objects",
+      "dataset_description": "medical and psychiatric records for testing structured output",
+      "persona": "a forensic psychiatrist preparing expert witness testimony",
+      "extraction_model": "gpt-4o-mini",
+      "analysis_model": "gpt-4o-mini",
+      "extraction_prompt": """Extract from this record:
 
-Record: {{ input }}
+  Record: {{ input }}
 
-Return JSON with all fields from expert witness tier PLUS:
-- date: Record date
-- record_id: Record ID
-- provider: Provider name
-- diagnoses: Psychiatric diagnoses
-- medications: Medications and doses
-- competency_assessments: Any competency evaluations
-- treatment_recommendations: Recommendations made
-- patient_statements: Relevant patient statements or behaviors
-- standard_of_care_issues: Potential deviations from standard care
-- collateral_sources: Family/witness information
-- functional_status: Work, social, daily functioning descriptions
-- suicide_violence_history: Prior attempts or violent incidents
-- substance_use: Drug/alcohol use patterns
-- legal_status: Involuntary holds, court orders, criminal justice involvement
-""",
-        "analysis_prompt": """Comprehensive forensic psychiatric analysis:
+  Return JSON with:
+  - date: Record date
+  - record_id: Record ID
+  - provider: Provider name
+  - diagnoses: Psychiatric diagnoses
+  - medications: Medications and doses
+  - patient_statements: Relevant patient statements or behaviors
+  """,
+      "analysis_prompt": """Prepare expert witness analysis:
 
-{% for record in inputs %}
-{{ record.date }} - {{ record.record_id }}:
-Provider: {{ record.provider }}
-Diagnoses: {{ record.diagnoses }}
-Meds: {{ record.medications }}
-Competency: {{ record.competency_assessments }}
-Recommendations: {{ record.treatment_recommendations }}
-Patient Statements: {{ record.patient_statements }}
-Standard of Care: {{ record.standard_of_care_issues }}
-Collateral: {{ record.collateral_sources }}
-Functional Status: {{ record.functional_status }}
-Suicide/Violence History: {{ record.suicide_violence_history }}
-Substance Use: {{ record.substance_use }}
-Legal Status: {{ record.legal_status }}
----
-{% endfor %}
+  {% for record in inputs %}
+  {{ record.date }} - {{ record.record_id }}:
+  Provider: {{ record.provider }}
+  Diagnoses: {{ record.diagnoses }}
+  Meds: {{ record.medications }}
+  Patient Statements: {{ record.patient_statements }}
+  ---
+  {% endfor %}
 
-Return JSON with all fields from expert witness tier PLUS:
-- timeline: Chronological psychiatric timeline with dates
-- treatment_gaps: Missing care with record ID citations
-- medication_adherence: Medication compliance with citations
-- contradictions: Conflicting information across records with citations
-- standard_of_care_deviations: Care that deviates from accepted standards with citations
-- competency_timeline: Changes in patient competency over time
-- expert_opinions_needed: Areas requiring expert psychiatric interpretation
-- functional_capacity_timeline: Work/social functioning changes over time
-- suicide_violence_risk_assessment: Risk factors and protective factors with citations
-- substance_use_impact: How substance use affected psychiatric treatment
-- legal_psychiatric_interface: Interactions between legal and psychiatric systems
-- causation_analysis: Relationship between incidents and psychiatric status
-- damages_assessment: Psychiatric harm and prognosis with supporting citations
-""",
-        "output_schema": {
-            "date": "string",
-            "record_id": "string",
-            "provider": "string",
-            "diagnoses": "list[str]",
-            "medications": "list[str]",
-            "competency_assessments": "string",
-            "treatment_recommendations": "string",
-            "patient_statements": "string",
-            "standard_of_care_issues": "string",
-            "collateral_sources": "string",
-            "functional_status": "string",
-            "suicide_violence_history": "string",
-            "substance_use": "string",
-            "legal_status": "string"
-        },
-        "analysis_schema": {
-            "timeline": "list[str]",
-            "treatment_gaps": "list[str]",
-            "medication_adherence": "list[str]",
-            "contradictions": "list[str]",
-            "standard_of_care_deviations": "list[str]",
-            "competency_timeline": "list[str]",
-            "expert_opinions_needed": "list[str]",
-            "functional_capacity_timeline": "list[str]",
-            "suicide_violence_risk_assessment": "list[str]",
-            "substance_use_impact": "list[str]",
-            "legal_psychiatric_interface": "list[str]",
-            "causation_analysis": "list[str]",
-            "damages_assessment": "list[str]"
-        }
-    },
+  Return JSON with:
+  - contradictions: List of contradiction objects, each with:
+    * description (string): Clear description
+    * records (list of strings): Record IDs like ["MRN-2024-001"]
+    * category (string): diagnosis|medication|timeline|symptoms|treatment|other
+    * severity (string): critical|moderate|minor
+    * legal_relevance (string): high|medium|low
+
+  - red_flags: List of red flag objects, each with:
+    * category (string): Documentation Gaps|Standard of Care|Safety Issues|etc.
+    * issue (string): Specific description of the issue
+    * records (list of strings): Record IDs involved
+    * legal_relevance (string): high|medium|low
+
+  - expert_opinions_needed: List of expert opinion objects, each with:
+    * topic (string): Brief topic heading
+    * reason (string): Why expert opinion is needed
+    * records (list of strings): Relevant record IDs
+
+  - timeline: Chronological events (simple string list)
+  """,
+      "output_schema": {
+          "date": "string",
+          "record_id": "string",
+          "provider": "string",
+          "diagnoses": "list[str]",
+          "medications": "list[str]",
+          "patient_statements": "string"
+      },
+      "analysis_schema": {
+          "contradictions": "list[dict]",
+          "red_flags": "list[dict]",
+          "expert_opinions_needed": "list[dict]",
+          "timeline": "list[str]"
+      }
+  },
 
     "medical_chronology": {
         "name": "Medical Chronology",
         "dataset_description": "medical records from various healthcare providers",
         "persona": "a medical chronologist extracting structured data from records",
         "extraction_model": "gpt-4o-mini",  # Model for extraction phase
+        "analysis_model": "gpt-4o-mini",  # Model for analysis phase (contradictions, red flags, expert opinions)
         "num_retries_on_validate_failure": 2,  # Retry twice on validation failure
         "extraction_validation": [
             'output["date"] != ""',  # Enforce date presence (critical for chronology)
@@ -343,9 +261,46 @@ Return JSON with the original fields plus updated confidence field.
             "event_description": "string",
             "diagnosis": "string",
             "confidence": "string"
+        },
+        "analysis_prompt": """Perform forensic medical analysis on these records:
+
+{% for record in inputs %}
+{{ record.date }} - {{ record.record_id }}:
+Provider: {{ record.provider }}
+Event: [{{ record.event_type }}] {{ record.event_description }}
+Diagnosis: {{ record.diagnosis }}
+Confidence: {{ record.confidence }}
+---
+{% endfor %}
+
+Return JSON with:
+- contradictions: List of contradiction objects, each with:
+  * description (string): Clear description of the contradiction found across records
+  * records (list of strings): Record IDs involved (e.g., ["MRN-2024-001", "MRN-2024-002"])
+  * category (string): diagnosis|treatment|timeline|documentation|medication|other
+  * severity (string): critical|moderate|minor
+  * legal_relevance (string): high|medium|low
+
+- red_flags: List of red flag objects, each with:
+  * category (string): Documentation Gaps|Standard of Care|Inconsistent Treatment|Missing Records|other
+  * issue (string): Specific description of the issue or gap identified
+  * records (list of strings): Record IDs involved
+  * legal_relevance (string): high|medium|low
+
+- expert_opinions_needed: List of expert opinion objects, each with:
+  * topic (string): Brief topic heading describing area requiring expert review
+  * reason (string): Why expert medical opinion is needed for this topic
+  * records (list of strings): Relevant record IDs
+
+Note: Focus on medical-legal issues relevant to litigation, malpractice review, or expert witness testimony.
+""",
+        "analysis_schema": {
+            "contradictions": "list[dict]",
+            "red_flags": "list[dict]",
+            "expert_opinions_needed": "list[dict]"
         }
-        # Note: No analysis_schema - chronology assembly happens in Python (engine.py)
-        # This avoids LLM hallucinations in fold operations and ensures perfect data integrity
+        # Note: chronology and missing_records are assembled in Python (engine.py)
+        # This avoids LLM hallucinations and ensures perfect chronological accuracy
     }
 }
 
@@ -355,7 +310,7 @@ def get_pipeline_config(pipeline: str):
     Get configuration for a specific pipeline
 
     Args:
-        pipeline: One of "psych_timeline", "psych_compliance", "psych_expert_witness", "psych_full_discovery", "medical_chronology"
+        pipeline: One of "psych_timeline", "psych_expert_witness", "medical_chronology"
 
     Returns:
         Pipeline configuration dict
@@ -377,9 +332,9 @@ def list_pipelines():
     Returns:
         List of pipeline names and their human-readable titles
     """
-    # MVP: Only expose medical_chronology and psych_timeline
+    # MVP: Only expose medical_chronology, test_structured and psych_timeline
     # Other pipelines remain in codebase for future roadmap
-    MVP_PIPELINES = ["medical_chronology", "psych_timeline"]
+    MVP_PIPELINES = ["medical_chronology", "psych_timeline", "test_structured"]
 
     return [
         {"id": pipeline_id, "name": config["name"]}

@@ -98,7 +98,18 @@ def analyze_records_for_red_flags(sorted_records, analysis_model, pipeline_confi
         persona = pipeline_config.get("persona", "a forensic medical expert")
         dataset_description = pipeline_config.get("dataset_description", "medical records")
 
-        analysis_prompt = f"""You are {persona} analyzing {dataset_description}.
+        # Use custom analysis_prompt from pipeline config if available, otherwise use default
+        if "analysis_prompt" in pipeline_config:
+            # Pipeline provides custom analysis prompt
+            print(f"[Analysis] Using custom analysis prompt from pipeline config")
+            analysis_prompt = pipeline_config["analysis_prompt"]
+            # Note: Custom prompts should handle their own data formatting
+            # For now, we'll still provide the records summary for compatibility
+            # Pipeline authors can use {{inputs}} placeholder if needed
+        else:
+            # Use default hardcoded prompt for backward compatibility
+            print(f"[Analysis] Using default analysis prompt")
+            analysis_prompt = f"""You are {persona} analyzing {dataset_description}.
 
 Below are {len(sorted_records)} extracted medical records in chronological order. Each record has been extracted and validated.
 
@@ -155,51 +166,66 @@ Be thorough but concise. Only include significant issues. Always cite specific r
 
         print(f"[Analysis] ✓ Found {len(raw_red_flags)} red flag(s), {len(raw_contradictions)} contradiction(s), {len(raw_expert_opinions)} expert opinion(s) needed")
 
-        # Format results as strings for frontend compatibility
-        red_flags = []
-        for flag in raw_red_flags:
-            if isinstance(flag, dict):
-                # Convert dict to formatted string
-                records_str = ", ".join(flag.get("records", [])) if isinstance(flag.get("records"), list) else flag.get("records", "Unknown")
-                formatted = (
-                    f"Category: {flag.get('category', 'unknown')} | "
-                    f"Issue: {flag.get('issue', 'No description')} | "
-                    f"Records: {records_str} | "
-                    f"Legal Relevance: {flag.get('legal_relevance', 'unknown')}"
-                )
-                red_flags.append(formatted)
-            else:
-                # Already a string
-                red_flags.append(str(flag))
+        # Get analysis schema to determine output format
+        analysis_schema = pipeline_config.get("analysis_schema", {})
 
-        contradictions = []
-        for contradiction in raw_contradictions:
-            if isinstance(contradiction, dict):
-                # Convert dict to formatted string
-                formatted = (
-                    f"Records {contradiction.get('records', 'Unknown')}: "
-                    f"{contradiction.get('description', 'No description')} | "
-                    f"Legal Relevance: {contradiction.get('legal_relevance', 'unknown')}"
-                )
-                contradictions.append(formatted)
-            else:
-                # Already a string
-                contradictions.append(str(contradiction))
+        # Helper function to format field based on schema
+        def format_field(field_name, raw_data, string_formatter):
+            """
+            Format field based on schema specification.
+            If schema specifies list[dict], return objects.
+            If schema specifies list[str], convert to strings.
+            Default to strings for backward compatibility.
+            """
+            schema_type = analysis_schema.get(field_name, "list[str]")
 
-        expert_opinions = []
-        for opinion in raw_expert_opinions:
-            if isinstance(opinion, dict):
-                # Convert dict to formatted string
-                records_str = ", ".join(opinion.get("records", [])) if isinstance(opinion.get("records"), list) else opinion.get("records", "Unknown")
-                formatted = (
-                    f"Topic: {opinion.get('topic', 'Unknown')} | "
-                    f"Records: {records_str} | "
-                    f"Reason: {opinion.get('reason', 'No description')}"
-                )
-                expert_opinions.append(formatted)
+            if schema_type == "list[dict]":
+                # Return structured objects
+                print(f"[Analysis] Returning {field_name} as structured objects (schema: list[dict])")
+                return raw_data
             else:
-                # Already a string
-                expert_opinions.append(str(opinion))
+                # Convert to pipe-delimited strings (backward compatibility)
+                print(f"[Analysis] Converting {field_name} to strings (schema: {schema_type})")
+                formatted = []
+                for item in raw_data:
+                    if isinstance(item, dict):
+                        formatted.append(string_formatter(item))
+                    else:
+                        formatted.append(str(item))
+                return formatted
+
+        # Format red_flags
+        def format_red_flag(flag):
+            records_str = ", ".join(flag.get("records", [])) if isinstance(flag.get("records"), list) else flag.get("records", "Unknown")
+            return (
+                f"Category: {flag.get('category', 'unknown')} | "
+                f"Issue: {flag.get('issue', 'No description')} | "
+                f"Records: {records_str} | "
+                f"Legal Relevance: {flag.get('legal_relevance', 'unknown')}"
+            )
+
+        red_flags = format_field("red_flags", raw_red_flags, format_red_flag)
+
+        # Format contradictions
+        def format_contradiction(contradiction):
+            return (
+                f"Records {contradiction.get('records', 'Unknown')}: "
+                f"{contradiction.get('description', 'No description')} | "
+                f"Legal Relevance: {contradiction.get('legal_relevance', 'unknown')}"
+            )
+
+        contradictions = format_field("contradictions", raw_contradictions, format_contradiction)
+
+        # Format expert_opinions_needed
+        def format_expert_opinion(opinion):
+            records_str = ", ".join(opinion.get("records", [])) if isinstance(opinion.get("records"), list) else opinion.get("records", "Unknown")
+            return (
+                f"Topic: {opinion.get('topic', 'Unknown')} | "
+                f"Records: {records_str} | "
+                f"Reason: {opinion.get('reason', 'No description')}"
+            )
+
+        expert_opinions = format_field("expert_opinions_needed", raw_expert_opinions, format_expert_opinion)
 
         return {
             "red_flags": red_flags,
@@ -246,6 +272,11 @@ def run_forensic_pipeline(input_data, pipeline="psych_timeline", hybrid_mode=Fal
     # Get model configurations (with defaults)
     extraction_model = pipeline_config.get("extraction_model", "gpt-4o-mini")
     analysis_model = pipeline_config.get("analysis_model", "gpt-4o-mini")
+
+    # Auto-enable hybrid mode if pipeline has analysis_schema defined
+    if not hybrid_mode and pipeline_config.get("analysis_schema"):
+        hybrid_mode = True
+        print(f"[Pipeline] Auto-enabling hybrid mode: Pipeline '{pipeline}' has analysis_schema defined")
 
     # Override analysis model if hybrid mode is enabled
     if hybrid_mode:
@@ -402,13 +433,27 @@ def run_forensic_pipeline(input_data, pipeline="psych_timeline", hybrid_mode=Fal
                 contradictions = []
                 expert_opinions_needed = []
 
+                # Check if pipeline expects structured red_flags
+                analysis_schema = pipeline_config.get("analysis_schema", {})
+                use_structured_red_flags = analysis_schema.get("red_flags") == "list[dict]"
+
                 # Add invalid date records to red flags
                 for record in sorted_records:
                     if record.get('date', '') in invalid_dates:
-                        red_flags.append(
-                            f"Category: documentation_gap | Issue: Record missing valid date '{record.get('date', '')}' | "
-                            f"Record: {record.get('record_id', 'Unknown')} | Legal Relevance: high"
-                        )
+                        if use_structured_red_flags:
+                            # Structured object format
+                            red_flags.append({
+                                "category": "documentation_gap",
+                                "issue": f"Record missing valid date '{record.get('date', '')}'",
+                                "records": [record.get('record_id', 'Unknown')],
+                                "legal_relevance": "high"
+                            })
+                        else:
+                            # Legacy pipe-delimited string format
+                            red_flags.append(
+                                f"Category: documentation_gap | Issue: Record missing valid date '{record.get('date', '')}' | "
+                                f"Record: {record.get('record_id', 'Unknown')} | Legal Relevance: high"
+                            )
 
                 if red_flags:
                     print(f"[Assembly] ⚠️  Added {len(red_flags)} documentation gap(s) to red flags")

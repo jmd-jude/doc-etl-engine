@@ -6,7 +6,7 @@ import { Upload, CheckCircle2, AlertCircle, FileJson, Download, AlertTriangle, X
 type ProcessingState = 'ready' | 'processing' | 'complete' | 'error';
 
 interface AnalysisResult {
-  [key: string]: string[];
+  [key: string]: (string | Record<string, any>)[];
 }
 
 const PROCESSING_STAGES = [
@@ -539,14 +539,23 @@ export default function ForensicDiscovery() {
                     </p>
                   </div>
                   <div className="p-6 space-y-3">
-                    {items.map((item, index) => (
-                      <div key={index} className="flex gap-3">
-                        <div className={`h-6 w-6 rounded-full ${badgeBg} border ${badgeBorder} flex items-center justify-center ${badgeText} text-xs font-medium flex-shrink-0 mt-0.5`}>
-                          {index + 1}
+                    {items.map((item, index) => {
+                      // Handle both string items and structured objects
+                      const displayText = typeof item === 'string'
+                        ? item
+                        : typeof item === 'object' && item !== null
+                          ? (item.description || item.issue || item.topic || JSON.stringify(item))
+                          : String(item);
+
+                      return (
+                        <div key={index} className="flex gap-3">
+                          <div className={`h-6 w-6 rounded-full ${badgeBg} border ${badgeBorder} flex items-center justify-center ${badgeText} text-xs font-medium flex-shrink-0 mt-0.5`}>
+                            {index + 1}
+                          </div>
+                          <p className={`${textColor} text-sm leading-relaxed`}>{displayText}</p>
                         </div>
-                        <p className={`${textColor} text-sm leading-relaxed`}>{item}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
