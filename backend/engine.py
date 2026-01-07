@@ -6,6 +6,7 @@ from pipeline_configs import get_pipeline_config
 from litellm import completion_cost
 import litellm
 import threading
+from jinja2 import Template
 
 load_dotenv()
 
@@ -80,19 +81,10 @@ def analyze_records_for_red_flags(sorted_records, analysis_model, pipeline_confi
         with _cost_tracker["lock"]:
             _cost_tracker["operation_context"] = "analysis"
 
-        # Build a concise representation of the records for analysis
-        records_summary = []
-        for i, record in enumerate(sorted_records, 1):
-            summary = (
-                f"{i}. Date: {record.get('date', 'Unknown')} | "
-                f"ID: {record.get('record_id', 'Unknown')} | "
-                f"Provider: {record.get('provider', 'Unknown')} | "
-                f"Event: {record.get('event_type', 'unknown')} | "
-                f"Description: {record.get('event_description', 'No description')} | "
-                f"Diagnosis: {record.get('diagnosis', 'None')} | "
-                f"Confidence: {record.get('confidence', 'unknown')}"
-            )
-            records_summary.append(summary)
+        # Extract valid record IDs for grounding
+        valid_record_ids = [record.get('record_id', '') for record in sorted_records if record.get('record_id')]
+        valid_ids_str = ", ".join(valid_record_ids)
+        print(f"[Analysis] Grounding LLM with {len(valid_record_ids)} valid record IDs")
 
         # Construct analysis prompt
         persona = pipeline_config.get("persona", "a forensic medical expert")
@@ -100,15 +92,29 @@ def analyze_records_for_red_flags(sorted_records, analysis_model, pipeline_confi
 
         # Use custom analysis_prompt from pipeline config if available, otherwise use default
         if "analysis_prompt" in pipeline_config:
-            # Pipeline provides custom analysis prompt
+            # Pipeline provides custom analysis prompt with Jinja template
             print(f"[Analysis] Using custom analysis prompt from pipeline config")
-            analysis_prompt = pipeline_config["analysis_prompt"]
-            # Note: Custom prompts should handle their own data formatting
-            # For now, we'll still provide the records summary for compatibility
-            # Pipeline authors can use {{inputs}} placeholder if needed
+            template = Template(pipeline_config["analysis_prompt"])
+
+            # Render template with structured records (not text summaries!)
+            analysis_prompt = template.render(inputs=sorted_records)
         else:
             # Use default hardcoded prompt for backward compatibility
             print(f"[Analysis] Using default analysis prompt")
+            # Build text summary for default prompt
+            records_summary = []
+            for i, record in enumerate(sorted_records, 1):
+                summary = (
+                    f"{i}. Date: {record.get('date', 'Unknown')} | "
+                    f"ID: {record.get('record_id', 'Unknown')} | "
+                    f"Provider: {record.get('provider', 'Unknown')} | "
+                    f"Event: {record.get('event_type', 'unknown')} | "
+                    f"Description: {record.get('event_description', 'No description')} | "
+                    f"Diagnosis: {record.get('diagnosis', 'None')} | "
+                    f"Confidence: {record.get('confidence', 'unknown')}"
+                )
+                records_summary.append(summary)
+
             analysis_prompt = f"""You are {persona} analyzing {dataset_description}.
 
 Below are {len(sorted_records)} extracted medical records in chronological order. Each record has been extracted and validated.
@@ -131,6 +137,18 @@ Return JSON with three fields:
    - Format: "Topic: [topic] | Records: [record IDs] | Reason: [why expert needed]"
 
 Be thorough but concise. Only include significant issues. Always cite specific record IDs."""
+
+        # Add grounding constraints to prevent hallucinations
+        grounding_instructions = f"""
+
+CRITICAL GROUNDING REQUIREMENT:
+You MUST only cite record IDs that exist in the provided records above.
+Valid record IDs in this dataset: {valid_ids_str}
+
+Do NOT invent, assume, or reference any record IDs that are not in this list.
+If you cannot find evidence of an issue in the actual records provided, do not report it."""
+
+        analysis_prompt += grounding_instructions
 
         # Call LLM
         response = litellm.completion(
@@ -165,6 +183,35 @@ Be thorough but concise. Only include significant issues. Always cite specific r
         raw_expert_opinions = result.get("expert_opinions_needed", [])
 
         print(f"[Analysis] ✓ Found {len(raw_red_flags)} red flag(s), {len(raw_contradictions)} contradiction(s), {len(raw_expert_opinions)} expert opinion(s) needed")
+
+        # VALIDATION: Check for hallucinated record IDs
+        def validate_record_ids(items, field_name):
+            """Validate that cited record IDs exist in the input data"""
+            valid_ids_set = set(valid_record_ids)
+            hallucinations_found = 0
+
+            for item in items:
+                if isinstance(item, dict):
+                    cited_records = item.get("records", [])
+                    if isinstance(cited_records, str):
+                        cited_records = [r.strip() for r in cited_records.split(",")]
+                    elif not isinstance(cited_records, list):
+                        cited_records = []
+
+                    for record_id in cited_records:
+                        if record_id and record_id not in valid_ids_set:
+                            hallucinations_found += 1
+                            print(f"[Analysis] ⚠️  HALLUCINATION DETECTED in {field_name}: '{record_id}' does not exist in input data!")
+
+            if hallucinations_found > 0:
+                print(f"[Analysis] ⚠️  Total hallucinations in {field_name}: {hallucinations_found}")
+            else:
+                print(f"[Analysis] ✓ No hallucinations detected in {field_name}")
+
+        # Validate all citation fields
+        validate_record_ids(raw_red_flags, "red_flags")
+        validate_record_ids(raw_contradictions, "contradictions")
+        validate_record_ids(raw_expert_opinions, "expert_opinions_needed")
 
         # Get analysis schema to determine output format
         analysis_schema = pipeline_config.get("analysis_schema", {})
@@ -250,7 +297,7 @@ def run_forensic_pipeline(input_data, pipeline="psych_timeline", hybrid_mode=Fal
 
     Args:
         input_data: List of document records (JSON objects)
-        pipeline: One of "psych_timeline", "psych_compliance", "psych_expert_witness", "psych_full_discovery", "medical_chronology"
+        pipeline: One of "psych_timeline", "psych_expert_witness", "medical_chronology"
         hybrid_mode: If True, uses Claude Sonnet 4 for analysis (higher quality, higher cost)
 
     Returns:
@@ -259,10 +306,6 @@ def run_forensic_pipeline(input_data, pipeline="psych_timeline", hybrid_mode=Fal
 
     # Get pipeline-specific configuration
     pipeline_config = get_pipeline_config(pipeline)
-
-    # Add grouping key for reduce operation BEFORE saving to file
-    for record in input_data:
-        record['case_group'] = 'all'
 
     # Save input data to temp file (DocETL requires file-based datasets)
     input_path = "/tmp/forensic_input.json"
@@ -413,16 +456,22 @@ def run_forensic_pipeline(input_data, pipeline="psych_timeline", hybrid_mode=Fal
 
                 print(f"[Assembly] ✓ Identified {len(missing_records)} gaps > 30 days")
 
-                # Step 4: Format chronology strings
+                # Step 4: Format chronology strings using standard event schema
+                # All pipelines extract to: date, record_id, event_type, event_description, provider
+                # Optional fields (confidence, diagnosis) are pipeline-specific
                 chronology = []
                 for record in sorted_records:
                     entry = (
-                        f"{record.get('date', 'Unknown')}: "
+                        f"{record.get('date', 'Unknown')} [{record.get('record_id', 'Unknown')}]: "
                         f"[{record.get('event_type', 'unknown')}] - "
                         f"{record.get('event_description', 'No description')} "
-                        f"(Provider: {record.get('provider', 'Unknown')}) "
-                        f"[Confidence: {record.get('confidence', 'unknown')}]"
+                        f"(Provider: {record.get('provider', 'Unknown')})"
                     )
+
+                    # Append optional fields if present (e.g., confidence for medical_chronology)
+                    if 'confidence' in record:
+                        entry += f" [Confidence: {record.get('confidence', 'unknown')}]"
+
                     chronology.append(entry)
 
                 print(f"[Assembly] ✓ Formatted {len(chronology)} chronology entries")

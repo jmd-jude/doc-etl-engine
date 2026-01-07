@@ -1,13 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Upload, CheckCircle2, AlertCircle, FileJson, Download, AlertTriangle, XCircle, Clock } from 'lucide-react';
+import { Upload, CheckCircle2, AlertCircle, FileJson } from 'lucide-react';
+import Header from '@/components/Header';
 
 type ProcessingState = 'ready' | 'processing' | 'complete' | 'error';
-
-interface AnalysisResult {
-  [key: string]: (string | Record<string, any>)[];
-}
 
 const PROCESSING_STAGES = [
   'Validating inputs structure...',
@@ -63,7 +60,6 @@ export default function ForensicDiscovery() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [currentStage, setCurrentStage] = useState(0);
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [recordCount, setRecordCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -211,7 +207,6 @@ export default function ForensicDiscovery() {
         throw new Error(result.error);
       }
 
-      setAnalysis(result.analysis);
       setState('complete');
       setProgress(100);
     } catch (err) {
@@ -231,74 +226,54 @@ export default function ForensicDiscovery() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-[var(--font-geist-sans)]">
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-[var(--font-geist-sans)]">
       {/* Header */}
-      <header className="border-b border-slate-800/50 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-1 bg-emerald-500 rounded-full"></div>
-            <h1 className="text-xl font-semibold tracking-tight">ChronoScope - Medical Chronologies by FPA Med</h1>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400">System Status</span>
-            <div className="relative">
-              <div
-                className={`h-2.5 w-2.5 rounded-full ${
-                  backendStatus === 'online'
-                    ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'
-                    : backendStatus === 'offline'
-                    ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]'
-                    : 'bg-slate-600'
-                }`}
-              ></div>
-              {backendStatus === 'online' && (
-                <div className="absolute inset-0 h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping opacity-75"></div>
-              )}
-            </div>
-            <span className="text-xs text-slate-500 font-[var(--font-geist-mono)]">
-              {backendStatus === 'checking' ? 'Checking...' : backendStatus === 'online' ? 'Online' : 'Offline'}
-            </span>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="max-w-7xl mx-auto px-6 py-12">
         {/* Intake Section */}
         <div className="mb-12">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-semibold mb-2">Data Intake</h2>
-              <p className="text-slate-400 text-sm">
-                Upload case files (JSON)
+              <h2 className="text-2xl font-semibold mb-2 text-gray-900">Data Intake</h2>
+              <p className="text-gray-600 text-sm">
+                Upload case files
               </p>
             </div>
             <div className="flex gap-3">
-              {/* <button
-                onClick={downloadSample}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
-              >
-                <Download className="h-4 w-4" />
-                Sample Data
-              </button>*/}
-              <a
-                href="/admin"
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors text-sm font-medium"
-              >
-                Admin Dashboard →
-              </a>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-600">System Status</span>
+                <div className="relative">
+                  <div
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      backendStatus === 'online'
+                        ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'
+                        : backendStatus === 'offline'
+                        ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]'
+                        : 'bg-gray-400'
+                    }`}
+                  ></div>
+                  {backendStatus === 'online' && (
+                    <div className="absolute inset-0 h-2.5 w-2.5 rounded-full bg-green-500 animate-ping opacity-75"></div>
+                  )}
+                </div>
+                <span className="text-xs text-gray-500 font-[var(--font-geist-mono)]">
+                  {backendStatus === 'checking' ? 'Checking...' : backendStatus === 'online' ? 'Online' : 'Offline'}
+                </span>
+              </div>
             </div>
           </div>
 
           {/* Analysis Package Selector */}
           <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">
+            <label className="block text-sm font-medium mb-2 text-gray-700">
               Select Package
             </label>
             <select
               value={selectedPipeline}
               onChange={(e) => setSelectedPipeline(e.target.value)}
               disabled={state === 'processing'}
-              className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700/50 rounded-lg focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {availablePipelines.map((pipeline) => (
                 <option key={pipeline.id} value={pipeline.id}>
@@ -312,7 +287,7 @@ export default function ForensicDiscovery() {
           <div className="mb-6">
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-purple-300 hover:text-white transition-colors flex items-center gap-2"
+              className="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-2"
               disabled={state === 'processing'}
             >
               <span>{showAdvanced ? '▼' : '▶'}</span>
@@ -320,18 +295,18 @@ export default function ForensicDiscovery() {
             </button>
 
             {showAdvanced && (
-              <div className="mt-4 p-4 bg-slate-800/30 border border-slate-700/50 rounded-lg">
-                <label className="flex items-start gap-3 text-white cursor-pointer">
+              <div className="mt-4 p-4 bg-white border border-gray-200 rounded-lg">
+                <label className="flex items-start gap-3 text-gray-900 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={useHybridMode}
                     onChange={(e) => setUseHybridMode(e.target.checked)}
                     disabled={state === 'processing'}
-                    className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-700 text-emerald-600 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="mt-1 h-4 w-4 rounded border-gray-300 bg-white text-blue-600 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <div>
                     <div className="font-medium">Enable Multi-Model Mode</div>
-                    <div className="text-sm text-slate-400 mt-1">
+                    <div className="text-sm text-gray-600 mt-1">
                       Uses GPT-4o-mini for data extraction and Claude Sonnet 4 for data analysis.
                     </div>
                   </div>
@@ -343,8 +318,8 @@ export default function ForensicDiscovery() {
           {/* Customer Information */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Customer Name <span className="text-slate-500">(Optional)</span>
+              <label className="block text-sm font-medium mb-2 text-gray-700">
+                Customer Name <span className="text-gray-500">(Optional)</span>
               </label>
               <input
                 type="text"
@@ -352,12 +327,12 @@ export default function ForensicDiscovery() {
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="John Smith, Esq."
                 disabled={state === 'processing'}
-                className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700/50 rounded-lg focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Customer Email <span className="text-slate-500">(Optional)</span>
+              <label className="block text-sm font-medium mb-2 text-gray-700">
+                Customer Email <span className="text-gray-500">(Optional)</span>
               </label>
               <input
                 type="email"
@@ -365,7 +340,7 @@ export default function ForensicDiscovery() {
                 onChange={(e) => setCustomerEmail(e.target.value)}
                 placeholder="john@smithlaw.com"
                 disabled={state === 'processing'}
-                className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700/50 rounded-lg focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -375,21 +350,21 @@ export default function ForensicDiscovery() {
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            className={`border-2 border-dashed rounded-lg p-12 transition-all ${
+            className={`border-2 border-dashed rounded-lg p-12 transition-all bg-white ${
               isDragging
-                ? 'border-emerald-500 bg-emerald-500/5'
+                ? 'border-blue-500 bg-blue-50'
                 : state === 'ready' || state === 'complete'
-                ? 'border-slate-700/50 hover:border-slate-600'
-                : 'border-slate-800/50'
+                ? 'border-gray-300 hover:border-gray-400'
+                : 'border-gray-200'
             } ${state === 'processing' ? 'pointer-events-none' : ''}`}
           >
             <div className="flex flex-col items-center gap-4">
               {state === 'ready' && (
                 <>
-                  <FileJson className="h-12 w-12 text-slate-600" />
+                  <FileJson className="h-12 w-12 text-gray-400" />
                   <div className="text-center">
-                    <p className="text-lg mb-1">Drop your case file here</p>
-                    <p className="text-sm text-slate-500">or click to browse</p>
+                    <p className="text-lg mb-1 text-gray-900">Drop your case file here</p>
+                    <p className="text-sm text-gray-500">or click to browse</p>
                   </div>
                   <input
                     type="file"
@@ -400,13 +375,13 @@ export default function ForensicDiscovery() {
                   />
                   <label
                     htmlFor="file-input"
-                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg cursor-pointer transition-colors font-medium text-sm"
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer transition-colors font-medium text-sm"
                   >
                     Select File
                   </label>
                   {selectedFile && (
-                    <div className="mt-4 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg">
-                      <p className="text-sm font-[var(--font-geist-mono)] text-emerald-400">
+                    <div className="mt-4 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm font-[var(--font-geist-mono)] text-blue-700">
                         {selectedFile.name}
                       </p>
                     </div>
@@ -417,17 +392,17 @@ export default function ForensicDiscovery() {
               {state === 'processing' && (
                 <div className="w-full max-w-md">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin"></div>
+                    <div className="h-10 w-10 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
                     <div>
-                      <p className="font-medium">Analyzing {recordCount} records</p>
-                      <p className="text-sm text-slate-400 font-[var(--font-geist-mono)]">
+                      <p className="font-medium text-gray-900">Analyzing {recordCount} records</p>
+                      <p className="text-sm text-gray-600 font-[var(--font-geist-mono)]">
                         {PROCESSING_STAGES[currentStage]}
                       </p>
                     </div>
                   </div>
-                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-300"
+                      className="h-full bg-gradient-to-r from-blue-600 to-blue-500 transition-all duration-300"
                       style={{ width: `${progress}%` }}
                     ></div>
                   </div>
@@ -436,28 +411,27 @@ export default function ForensicDiscovery() {
 
               {state === 'complete' && (
                 <div className="text-center">
-                  <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
-                  <p className="text-lg font-medium mb-1">Forensic Analysis Complete</p>
-                  <p className="text-sm text-slate-400 mb-4">
+                  <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                  <p className="text-lg font-medium mb-1 text-gray-900">Analysis Complete</p>
+                  <p className="text-sm text-gray-600 mb-4">
                     {recordCount} record{recordCount !== 1 ? 's' : ''} analyzed
                   </p>
                   {caseId && (
                     <a
                       href={`/admin/review/${caseId}`}
-                      className="inline-block px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium text-sm mb-3"
+                      className="inline-block px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm mb-3"
                     >
-                      Review Case in Admin →
+                      Review Case Details →
                     </a>
                   )}
                   <button
                     onClick={() => {
                       setState('ready');
                       setSelectedFile(null);
-                      setAnalysis(null);
                       setRecordCount(0);
                       setCaseId(null);
                     }}
-                    className="mt-4 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors text-sm block mx-auto"
+                    className="mt-4 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm block mx-auto text-gray-700"
                   >
                     Analyze Another File
                   </button>
@@ -466,15 +440,15 @@ export default function ForensicDiscovery() {
 
               {state === 'error' && (
                 <div className="text-center">
-                  <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-                  <p className="text-lg font-medium mb-1">Analysis Failed</p>
-                  <p className="text-sm text-amber-400">{error}</p>
+                  <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                  <p className="text-lg font-medium mb-1 text-gray-900">Analysis Failed</p>
+                  <p className="text-sm text-red-600">{error}</p>
                   <button
                     onClick={() => {
                       setState('ready');
                       setError(null);
                     }}
-                    className="mt-4 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors text-sm"
+                    className="mt-4 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm text-gray-700"
                   >
                     Try Again
                   </button>
@@ -488,7 +462,7 @@ export default function ForensicDiscovery() {
               <button
                 onClick={handleUpload}
                 disabled={backendStatus !== 'online'}
-                className="flex items-center gap-2 px-8 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed rounded-lg transition-colors font-medium"
+                className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
               >
                 <Upload className="h-5 w-5" />
                 Upload & Analyze
@@ -496,93 +470,14 @@ export default function ForensicDiscovery() {
             </div>
           )}
         </div>
-
-        {/* Dynamic Analysis Results */}
-        {analysis && Object.keys(analysis).length > 0 && (
-          <div className="space-y-8">
-            <h2 className="text-2xl font-semibold mb-6">Analysis Results</h2>
-
-            {Object.entries(analysis).map(([key, items]) => {
-              if (!Array.isArray(items) || items.length === 0) return null;
-
-              // Determine section styling based on key name
-              const isHighAlert = key.includes('gap') || key.includes('deviation') || key.includes('issue') || key.includes('risk');
-              const isWarning = key.includes('contradiction') || key.includes('inconsistenc');
-              const isTimeline = key.includes('timeline') || key.includes('chronology');
-
-              const borderColor = isHighAlert ? 'border-red-900/50' : isWarning ? 'border-amber-900/50' : isTimeline ? 'border-emerald-900/50' : 'border-slate-800/50';
-              const bgColor = isHighAlert ? 'bg-red-950/20' : isWarning ? 'bg-amber-950/20' : isTimeline ? 'bg-emerald-950/20' : 'bg-slate-900/30';
-              const headerBg = isHighAlert ? 'bg-red-950/30' : isWarning ? 'bg-amber-950/30' : isTimeline ? 'bg-emerald-950/30' : 'bg-slate-900/50';
-              const iconColor = isHighAlert ? 'text-red-400' : isWarning ? 'text-amber-400' : isTimeline ? 'text-emerald-400' : 'text-slate-400';
-              const textColor = isHighAlert ? 'text-red-200/90' : isWarning ? 'text-amber-200/90' : isTimeline ? 'text-emerald-200/90' : 'text-slate-200';
-              const badgeBg = isHighAlert ? 'bg-red-500/10' : isWarning ? 'bg-amber-500/10' : isTimeline ? 'bg-emerald-500/10' : 'bg-slate-500/10';
-              const badgeBorder = isHighAlert ? 'border-red-500/30' : isWarning ? 'border-amber-500/30' : isTimeline ? 'border-emerald-500/30' : 'border-slate-500/30';
-              const badgeText = isHighAlert ? 'text-red-400' : isWarning ? 'text-amber-400' : isTimeline ? 'text-emerald-400' : 'text-slate-400';
-
-              // Format section title
-              const title = key
-                .split('_')
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(' ');
-
-              const Icon = isHighAlert ? XCircle : isWarning ? AlertTriangle : isTimeline ? Clock : CheckCircle2;
-
-              return (
-                <div key={key} className={`border ${borderColor} rounded-lg ${bgColor} overflow-hidden`}>
-                  <div className={`border-b ${borderColor} px-6 py-4 ${headerBg}`}>
-                    <div className="flex items-center gap-3">
-                      <Icon className={`h-5 w-5 ${iconColor}`} />
-                      <h3 className={`font-semibold ${iconColor}`}>{title}</h3>
-                    </div>
-                    <p className={`text-sm ${iconColor}/80 mt-1`}>
-                      {items.length} item{items.length !== 1 ? 's' : ''} identified
-                    </p>
-                  </div>
-                  <div className="p-6 space-y-3">
-                    {items.map((item, index) => {
-                      // Handle both string items and structured objects
-                      const displayText = typeof item === 'string'
-                        ? item
-                        : typeof item === 'object' && item !== null
-                          ? (item.description || item.issue || item.topic || JSON.stringify(item))
-                          : String(item);
-
-                      return (
-                        <div key={index} className="flex gap-3">
-                          <div className={`h-6 w-6 rounded-full ${badgeBg} border ${badgeBorder} flex items-center justify-center ${badgeText} text-xs font-medium flex-shrink-0 mt-0.5`}>
-                            {index + 1}
-                          </div>
-                          <p className={`${textColor} text-sm leading-relaxed`}>{displayText}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!analysis && state === 'ready' && (
-          <div className="border border-slate-800/50 rounded-lg bg-slate-900/30 overflow-hidden">
-            <div className="text-center py-16">
-              <FileJson className="h-16 w-16 text-slate-700 mx-auto mb-4" />
-              <p className="text-slate-500 text-lg">No analysis yet</p>
-              <p className="text-sm text-slate-600 mt-1">
-                Upload Data (PDF or JSON)
-              </p>
-            </div>
-          </div>
-        )}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/50 mt-20">
-        <div className="max-w-7xl mx-auto px-6 py-6 text-center text-sm text-slate-500">
+      <footer className="border-t border-gray-200 mt-20 bg-white">
+        <div className="max-w-7xl mx-auto px-6 py-6 text-center text-sm text-gray-600">
           <p>ChronoScope - Medical Chronologies</p>
-          <p className="mt-1 font-[var(--font-geist-mono)] text-xs">
-            Powered by 241 • for FPAMed
+          <p className="mt-1 font-[var(--font-geist-mono)] text-xs text-gray-500">
+            Powered by DocETL & 241 • FPAMed
           </p>
         </div>
       </footer>

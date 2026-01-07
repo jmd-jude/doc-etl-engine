@@ -13,7 +13,9 @@ import {
   Activity,
   User,
   MessageCircle,
-  Download
+  Download,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { getPipelineName } from '@/lib/pipelines';
 
@@ -89,6 +91,21 @@ function getSeverityBadgeColor(severity?: string): string {
   }
 }
 
+function extractRecordIds(text: string): { cleanText: string; recordIds: string[] } {
+  const recordIdPattern = /\[([A-Z]{2,}-\d{4}-\d+)\]/g;
+  const recordIds: string[] = [];
+  let match;
+
+  while ((match = recordIdPattern.exec(text)) !== null) {
+    recordIds.push(match[1]);
+  }
+
+  // Remove record IDs from text for cleaner display
+  const cleanText = text.replace(recordIdPattern, '').trim();
+
+  return { cleanText, recordIds };
+}
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -109,6 +126,7 @@ export default function EnhancedCaseReview() {
   const [viewSourceModalData, setViewSourceModalData] = useState<{recordId: string, record: any} | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchCase();
@@ -272,6 +290,20 @@ export default function EnhancedCaseReview() {
       newSet.add(level);
     }
     setSelectedLegalRelevance(newSet);
+  };
+
+  const toggleSection = (sectionKey: string) => {
+    const newSet = new Set(collapsedSections);
+    if (newSet.has(sectionKey)) {
+      newSet.delete(sectionKey);
+    } else {
+      newSet.add(sectionKey);
+    }
+    setCollapsedSections(newSet);
+  };
+
+  const isSectionCollapsed = (sectionKey: string): boolean => {
+    return collapsedSections.has(sectionKey);
   };
 
   // ============================================================================
@@ -444,65 +476,123 @@ export default function EnhancedCaseReview() {
     </div>
   );
 
-  const renderChronologyItem = (item: string, idx: number, sectionKey: string) => (
-    <div key={idx} className="bg-white border-l-4 border-blue-500 pl-4 py-3">
-      <div className="flex items-start gap-3">
-        <p className="flex-1 text-sm text-gray-700 leading-relaxed">{item}</p>
-        <button
-          onClick={() => openCommentModal(sectionKey, idx)}
-          className={`flex-shrink-0 px-2 py-1 rounded text-xs font-medium transition-colors ${
-            hasComment(sectionKey, idx)
-              ? 'bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200'
-              : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
-          }`}
-          title={hasComment(sectionKey, idx) ? 'Edit comment' : 'Add comment'}
-        >
-          <MessageCircle className="w-3 h-3 inline" />
-        </button>
-      </div>
-      {hasComment(sectionKey, idx) && (
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 text-xs mt-2">
-          <div className="flex items-start gap-2">
-            <MessageCircle className="w-3 h-3 text-purple-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <div className="font-semibold text-purple-700 mb-1">Expert Comment:</div>
-              <div className="text-gray-700 whitespace-pre-wrap">{getComment(sectionKey, idx)}</div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const renderChronologyItem = (item: string, idx: number, sectionKey: string, totalItems: number) => {
+    const isLast = idx === totalItems - 1;
+    const { cleanText, recordIds } = extractRecordIds(item);
 
-  const renderStringItem = (item: string, idx: number, sectionKey: string) => (
-    <div key={idx} className="bg-white border border-gray-200 rounded-lg p-3">
-      <div className="flex items-start gap-3">
-        <p className="flex-1 text-sm text-gray-700 leading-relaxed">{item}</p>
-        <button
-          onClick={() => openCommentModal(sectionKey, idx)}
-          className={`flex-shrink-0 px-2 py-1 rounded text-xs font-medium transition-colors ${
-            hasComment(sectionKey, idx)
-              ? 'bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200'
-              : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
-          }`}
-          title={hasComment(sectionKey, idx) ? 'Edit comment' : 'Add comment'}
-        >
-          <MessageCircle className="w-3 h-3 inline" />
-        </button>
-      </div>
-      {hasComment(sectionKey, idx) && (
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 text-xs mt-2">
-          <div className="flex items-start gap-2">
-            <MessageCircle className="w-3 h-3 text-purple-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <div className="font-semibold text-purple-700 mb-1">Expert Comment:</div>
-              <div className="text-gray-700 whitespace-pre-wrap">{getComment(sectionKey, idx)}</div>
+    return (
+      <div key={idx} className="relative flex gap-4 group">
+        {/* Timeline line and dot */}
+        <div className="relative flex flex-col items-center">
+          {/* Dot */}
+          <div className="w-3 h-3 bg-blue-600 rounded-full ring-4 ring-blue-50 z-10 group-hover:ring-blue-100 transition-all"></div>
+          {/* Connecting line */}
+          {!isLast && (
+            <div className="w-0.5 flex-1 bg-gradient-to-b from-blue-400 to-blue-200 mt-1"></div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 pb-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow group-hover:border-blue-300">
+            <div className="flex items-start gap-3">
+              <div className="flex-1 space-y-2">
+                <p className="text-sm text-gray-700 leading-relaxed">{cleanText}</p>
+                {recordIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {recordIds.map((recordId, ridx) => (
+                      <button
+                        key={ridx}
+                        onClick={() => openSourceModal(recordId)}
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer"
+                        title="Click to view source record"
+                      >
+                        <FileText className="w-3 h-3 mr-1" />
+                        {recordId}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => openCommentModal(sectionKey, idx)}
+                className={`flex-shrink-0 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  hasComment(sectionKey, idx)
+                    ? 'bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200'
+                    : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                }`}
+                title={hasComment(sectionKey, idx) ? 'Edit comment' : 'Add comment'}
+              >
+                <MessageCircle className="w-3 h-3 inline" />
+              </button>
             </div>
+            {hasComment(sectionKey, idx) && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 text-xs mt-3">
+                <div className="flex items-start gap-2">
+                  <MessageCircle className="w-3 h-3 text-purple-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-purple-700 mb-1">Expert Comment:</div>
+                    <div className="text-gray-700 whitespace-pre-wrap">{getComment(sectionKey, idx)}</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
+
+  const renderStringItem = (item: string, idx: number, sectionKey: string) => {
+    const { cleanText, recordIds } = extractRecordIds(item);
+
+    return (
+      <div key={idx} className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+        <div className="flex items-start gap-3">
+          <div className="flex-1 space-y-2">
+            <p className="text-sm text-gray-700 leading-relaxed">{cleanText}</p>
+            {recordIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {recordIds.map((recordId, ridx) => (
+                  <button
+                    key={ridx}
+                    onClick={() => openSourceModal(recordId)}
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer"
+                    title="Click to view source record"
+                  >
+                    <FileText className="w-3 h-3 mr-1" />
+                    {recordId}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => openCommentModal(sectionKey, idx)}
+            className={`flex-shrink-0 px-2 py-1 rounded text-xs font-medium transition-colors ${
+              hasComment(sectionKey, idx)
+                ? 'bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200'
+                : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+            }`}
+            title={hasComment(sectionKey, idx) ? 'Edit comment' : 'Add comment'}
+          >
+            <MessageCircle className="w-3 h-3 inline" />
+          </button>
+        </div>
+        {hasComment(sectionKey, idx) && (
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 text-xs mt-2">
+            <div className="flex items-start gap-2">
+              <MessageCircle className="w-3 h-3 text-purple-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="font-semibold text-purple-700 mb-1">Expert Comment:</div>
+                <div className="text-gray-700 whitespace-pre-wrap">{getComment(sectionKey, idx)}</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderGenericStructuredItem = (item: any, idx: number, sectionKey: string) => (
     <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -596,20 +686,30 @@ export default function EnhancedCaseReview() {
     if (sectionKey === 'red_flags') icon = <AlertTriangle className="w-5 h-5" />;
     if (sectionKey === 'expert_opinions_needed') icon = <User className="w-5 h-5" />;
 
+    const isCollapsed = isSectionCollapsed(sectionKey);
+
     return (
-      <section key={sectionKey} className="space-y-3">
-        <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
+      <section key={sectionKey} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <button
+          onClick={() => toggleSection(sectionKey)}
+          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+        >
+          {isCollapsed ? (
+            <ChevronRight className="w-5 h-5 text-gray-500" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-500" />
+          )}
           {icon}
           <h2 className="text-lg font-semibold text-gray-900">{sectionTitle}</h2>
           <span className="ml-auto text-sm font-medium text-gray-500">
             {items.length} {items.length === 1 ? 'item' : 'items'}
           </span>
-        </div>
+        </button>
 
-        
-
-        <div className="space-y-2">
-          {items.map((item, idx) => {
+        {!isCollapsed && (
+          <div className={`px-4 pb-4 ${sectionKey === 'chronology' ? 'space-y-0' : 'space-y-2'} border-t border-gray-100`}>
+            <div className="pt-3"></div>
+            {items.map((item, idx) => {
             if (sectionKey === 'contradictions' && isStructured) {
               return renderContradiction(item as StructuredContradiction, idx, sectionKey);
             }
@@ -620,15 +720,16 @@ export default function EnhancedCaseReview() {
               return renderExpertOpinion(item as StructuredExpertOpinion, idx, sectionKey);
             }
             if (sectionKey === 'chronology') {
-              return renderChronologyItem(item, idx, sectionKey);
+              return renderChronologyItem(item, idx, sectionKey, items.length);
             }
             // Fallback: use generic structured renderer for unknown structured types
             if (isStructured) {
               return renderGenericStructuredItem(item, idx, sectionKey);
             }
             return renderStringItem(item, idx, sectionKey);
-          })}
-        </div>
+            })}
+          </div>
+        )}
       </section>
     );
   };
@@ -671,7 +772,7 @@ export default function EnhancedCaseReview() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-[100]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -800,7 +901,7 @@ export default function EnhancedCaseReview() {
       {/* Comment Modal */}
       {commentModalData && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 pt-30 overflow-y-auto"
           onClick={() => setCommentModalData(null)}
         >
           <div
@@ -876,7 +977,7 @@ export default function EnhancedCaseReview() {
       {/* Source Record Modal */}
       {viewSourceModalData && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 pt-30 overflow-y-auto"
           onClick={() => setViewSourceModalData(null)}
         >
           <div

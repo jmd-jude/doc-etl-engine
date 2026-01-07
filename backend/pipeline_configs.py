@@ -1,6 +1,22 @@
 """
 Pipeline Configuration System for ChronoScope
 Enables multi-pipeline document analysis with minimal code changes
+
+STANDARD EVENT SCHEMA (All pipelines must extract these fields):
+--------------------------------------------------------------------
+Every pipeline's extraction_prompt MUST output these standardized fields:
+- date: Record date (YYYY-MM-DD format) [REQUIRED]
+- record_id: Unique identifier for deduplication [REQUIRED]
+- event_type: Category of event (visit, evaluation, treatment, etc.) [REQUIRED]
+- event_description: One or two sentence summary of what happened [REQUIRED - THE KEY FIELD]
+- provider: Provider/facility name [OPTIONAL]
+
+Additional fields (pipeline-specific, not used by chronology assembly):
+- confidence: Confidence level (medical_chronology only)
+- diagnosis: Diagnosis mentioned (medical_chronology only)
+- [Future pipelines can add custom fields as needed]
+
+This standard ensures engine.py can build chronologies without pipeline-specific logic.
 """
 
 PIPELINE_CONFIGS = {
@@ -10,14 +26,10 @@ PIPELINE_CONFIGS = {
         "persona": "a forensic psychiatrist reviewing records for timeline construction",
         "extraction_model": "gpt-4o-mini",
         "analysis_model": "gpt-4o-mini",
-        "fold_batch_size": 100,  # Process 100 records per fold iteration
         "num_retries_on_validate_failure": 2,  # Retry twice on validation failure
         "extraction_validation": [
-            'output["date"] != ""'  # Only enforce date presence (critical for chronology)
-            # Removed strict validations to prevent data loss during demos
-        ],
-        "analysis_validation": [
-            'len(output["timeline"]) >= 1'  # At least one timeline entry required
+            'output["date"] != ""',       # Enforce date presence (critical for chronology)
+            'output["record_id"] != ""'   # Enforce record_id for deduplication
         ],
         "extraction_prompt": """Extract from this record:
 
@@ -25,46 +37,26 @@ Record: {{ input }}
 
 Return JSON with:
 - date: Record date (YYYY-MM-DD)
+- record_id: Record ID if mentioned (or use date as fallback)
 - event_type: (evaluation, treatment, incident, hospitalization, medication_change, other)
-- summary: One sentence description
+- event_description: One to two sentence description of what happened
 - provider: Provider name if mentioned
 """,
         "analysis_prompt": """Create chronological timeline of psychiatric events:
 
 {% for record in inputs %}
-{{ record.date }}: [{{ record.event_type }}] {{ record.summary }}
+{{ record.date }}: [{{ record.event_type }}] {{ record.event_description }}
 {% endfor %}
 
 Return JSON with:
 - timeline: List of chronological events (include date at start of each)
 - treatment_gaps: Periods >60 days without documented care
 """,
-        "fold_prompt": """You are continuing a psychiatric timeline analysis. You have partial results and new records to incorporate.
-
-PREVIOUS ANALYSIS (based on earlier records):
-Timeline entries: {{ output.timeline | length }} events
-{% if output.treatment_gaps %}Treatment gaps identified: {{ output.treatment_gaps | length }}{% endif %}
-
-NEW RECORDS TO INCORPORATE ({{ inputs | length }} additional records):
-{% for record in inputs %}
-{{ record.date }}: [{{ record.event_type }}] {{ record.summary }}
-{% endfor %}
-
-TASK: Create a COMPLETE psychiatric timeline covering ALL records (previous + new).
-
-CRITICAL REQUIREMENTS:
-1. Merge new records into complete chronological timeline
-2. Re-analyze ALL treatment gaps >60 days across the ENTIRE timeline
-3. Output must be a clean, standalone timeline - do NOT mention "updated", "added", or reference the incremental process
-
-Return JSON with:
-- timeline: COMPLETE list of ALL chronological events (previous + new, sorted by date)
-- treatment_gaps: ALL gaps >60 days across entire timeline
-""",
         "output_schema": {
             "date": "string",
+            "record_id": "string",
             "event_type": "string",
-            "summary": "string",
+            "event_description": "string",
             "provider": "string"
         },
         "analysis_schema": {
@@ -139,72 +131,6 @@ Return JSON with:
         }
     },
 
-    "test_structured": {
-      "name": "Test: Structured Objects",
-      "dataset_description": "medical and psychiatric records for testing structured output",
-      "persona": "a forensic psychiatrist preparing expert witness testimony",
-      "extraction_model": "gpt-4o-mini",
-      "analysis_model": "gpt-4o-mini",
-      "extraction_prompt": """Extract from this record:
-
-  Record: {{ input }}
-
-  Return JSON with:
-  - date: Record date
-  - record_id: Record ID
-  - provider: Provider name
-  - diagnoses: Psychiatric diagnoses
-  - medications: Medications and doses
-  - patient_statements: Relevant patient statements or behaviors
-  """,
-      "analysis_prompt": """Prepare expert witness analysis:
-
-  {% for record in inputs %}
-  {{ record.date }} - {{ record.record_id }}:
-  Provider: {{ record.provider }}
-  Diagnoses: {{ record.diagnoses }}
-  Meds: {{ record.medications }}
-  Patient Statements: {{ record.patient_statements }}
-  ---
-  {% endfor %}
-
-  Return JSON with:
-  - contradictions: List of contradiction objects, each with:
-    * description (string): Clear description
-    * records (list of strings): Record IDs like ["MRN-2024-001"]
-    * category (string): diagnosis|medication|timeline|symptoms|treatment|other
-    * severity (string): critical|moderate|minor
-    * legal_relevance (string): high|medium|low
-
-  - red_flags: List of red flag objects, each with:
-    * category (string): Documentation Gaps|Standard of Care|Safety Issues|etc.
-    * issue (string): Specific description of the issue
-    * records (list of strings): Record IDs involved
-    * legal_relevance (string): high|medium|low
-
-  - expert_opinions_needed: List of expert opinion objects, each with:
-    * topic (string): Brief topic heading
-    * reason (string): Why expert opinion is needed
-    * records (list of strings): Relevant record IDs
-
-  - timeline: Chronological events (simple string list)
-  """,
-      "output_schema": {
-          "date": "string",
-          "record_id": "string",
-          "provider": "string",
-          "diagnoses": "list[str]",
-          "medications": "list[str]",
-          "patient_statements": "string"
-      },
-      "analysis_schema": {
-          "contradictions": "list[dict]",
-          "red_flags": "list[dict]",
-          "expert_opinions_needed": "list[dict]",
-          "timeline": "list[str]"
-      }
-  },
-
     "medical_chronology": {
         "name": "Medical Chronology",
         "dataset_description": "medical records from various healthcare providers",
@@ -229,30 +155,6 @@ Return JSON with:
 - diagnosis: Diagnosis mentioned (if any)
 - confidence: Confidence level (high, medium, or low)
 """,
-        "gleaning": {
-            "num_rounds": 1,
-            "validation_prompt": """Review the extracted medical event for accuracy:
-
-Extracted data:
-Date: {{ output.date }}
-Provider: {{ output.provider }}
-Event Type: {{ output.event_type }}
-Event Description: {{ output.event_description }}
-Diagnosis: {{ output.diagnosis }}
-
-Validation criteria:
-- Is the date in YYYY-MM-DD format and clearly stated in the record?
-- Is the provider name clearly stated (not "unknown", "unclear", or inferred)?
-- Is the event description specific and factual (not vague or assumed)?
-
-Assign confidence level:
-- "high": All fields are clearly documented with specific information
-- "medium": Date is present but provider/description are partially inferred or vague
-- "low": Key information is uncertain, missing, or heavily inferred
-
-Return JSON with the original fields plus updated confidence field.
-"""
-        },
         "output_schema": {
             "date": "string",
             "record_id": "string",
@@ -332,9 +234,9 @@ def list_pipelines():
     Returns:
         List of pipeline names and their human-readable titles
     """
-    # MVP: Only expose medical_chronology, test_structured and psych_timeline
+    # MVP: Only expose medical_chronology and psych_timeline
     # Other pipelines remain in codebase for future roadmap
-    MVP_PIPELINES = ["medical_chronology", "psych_timeline", "test_structured"]
+    MVP_PIPELINES = ["medical_chronology", "psych_timeline"]
 
     return [
         {"id": pipeline_id, "name": config["name"]}

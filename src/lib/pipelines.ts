@@ -5,9 +5,7 @@
 
 export const PIPELINE_NAMES: { [key: string]: string } = {
   psych_timeline: 'Basic Timeline',
-  psych_compliance: 'Compliance Audit',
   psych_expert_witness: 'Expert Witness Package',
-  psych_full_discovery: 'Full Discovery Analysis',
   medical_chronology: 'Medical Chronology',
 };
 

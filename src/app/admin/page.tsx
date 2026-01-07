@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getPipelineName } from '@/lib/pipelines';
+import Header from '@/components/Header';
 
 interface Case {
   id: string;
@@ -56,14 +57,12 @@ export default function AdminDashboard() {
       processing: 'bg-blue-100 text-blue-800',
       pending_review: 'bg-yellow-100 text-yellow-800',
       approved: 'bg-green-100 text-green-800',
-      delivered: 'bg-gray-100 text-gray-800',
     };
 
     const labels = {
       processing: 'Processing',
       pending_review: 'Pending',
       approved: 'Approved',
-      delivered: 'Delivered',
     };
 
     return (
@@ -85,9 +84,9 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
+      <div className="min-h-screen bg-gray-50 p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-white text-center">Loading cases...</div>
+          <div className="text-gray-900 text-center">Loading cases...</div>
         </div>
       </div>
     );
@@ -95,7 +94,7 @@ export default function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
+      <div className="min-h-screen bg-gray-50 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-800">{error}</p>
@@ -106,58 +105,51 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+
+      <div className="max-w-7xl mx-auto p-8">
+        {/* Page Title */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            FPA Med - ChronoScope Admin
-          </h1>
-          <p className="text-purple-200">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Job Management Dashboard
-          </p>
+          </h1>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white/10 backdrop-blur-sm border border-purple-300/20 rounded-lg p-6">
-            <div className="text-purple-200 text-sm font-medium mb-1">Total Cases</div>
-            <div className="text-3xl font-bold text-white">{cases.length}</div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+            <div className="text-gray-600 text-sm font-medium mb-1">Total Cases</div>
+            <div className="text-3xl font-bold text-gray-900">{cases.length}</div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm border border-yellow-300/20 rounded-lg p-6">
-            <div className="text-yellow-200 text-sm font-medium mb-1">Pending Review</div>
-            <div className="text-3xl font-bold text-white">
+          <div className="bg-white border border-yellow-200 rounded-lg p-6 shadow-sm">
+            <div className="text-yellow-700 text-sm font-medium mb-1">Pending Review</div>
+            <div className="text-3xl font-bold text-gray-900">
               {cases.filter(c => c.status === 'pending_review').length}
             </div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm border border-green-300/20 rounded-lg p-6">
-            <div className="text-green-200 text-sm font-medium mb-1">Approved</div>
-            <div className="text-3xl font-bold text-white">
+          <div className="bg-white border border-green-200 rounded-lg p-6 shadow-sm">
+            <div className="text-green-700 text-sm font-medium mb-1">Approved</div>
+            <div className="text-3xl font-bold text-gray-900">
               {cases.filter(c => c.status === 'approved').length}
-            </div>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm border border-gray-300/20 rounded-lg p-6">
-            <div className="text-gray-200 text-sm font-medium mb-1">Delivered</div>
-            <div className="text-3xl font-bold text-white">
-              {cases.filter(c => c.status === 'delivered').length}
             </div>
           </div>
         </div>
 
         {/* Cases Table */}
-        <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-gradient-to-r from-purple-600 to-blue-600">
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Case ID</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Customer</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Analysis Package</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Records</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Cost/Page</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Uploaded</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Action</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Case ID</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Customer</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Analysis Package</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Records</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Cost/Page</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Status</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Uploaded</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -214,7 +206,7 @@ export default function AdminDashboard() {
                       <td className="px-6 py-4">
                         <Link
                           href={`/admin/review/${case_.id}/enhanced`}
-                          className="text-purple-600 hover:text-purple-800 font-medium text-sm"
+                          className="text-blue-600 hover:text-blue-800 font-medium text-sm"
                         >
                           Review →
                         </Link>
@@ -227,15 +219,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Back to Upload */}
-        <div className="mt-8 text-center">
-          <Link
-            href="/"
-            className="text-purple-200 hover:text-white transition-colors"
-          >
-            ← Back to Upload
-          </Link>
-        </div>
       </div>
     </div>
   );
