@@ -235,10 +235,7 @@ export default function ForensicDiscovery() {
         <div className="mb-12">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-semibold mb-2 text-gray-900">Data Intake</h2>
-              <p className="text-gray-600 text-sm">
-                Upload case files
-              </p>
+              <h2 className="text-2xl font-semibold mb-2 text-gray-900">Upload Case File</h2>
             </div>
             <div className="flex gap-3">
               <div className="flex items-center gap-2 text-sm">
@@ -350,7 +347,7 @@ export default function ForensicDiscovery() {
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            className={`border-2 border-dashed rounded-lg p-12 transition-all bg-white ${
+            className={`border-2 border-dashed rounded-lg p-12 py-6 transition-all bg-white ${
               isDragging
                 ? 'border-blue-500 bg-blue-50'
                 : state === 'ready' || state === 'complete'
@@ -477,7 +474,7 @@ export default function ForensicDiscovery() {
         <div className="max-w-7xl mx-auto px-6 py-6 text-center text-sm text-gray-600">
           <p>ChronoScope - Medical Chronologies</p>
           <p className="mt-1 font-[var(--font-geist-mono)] text-xs text-gray-500">
-            Powered by DocETL & 241 • FPAMed
+            Powered by DocETL • FPAMed
           </p>
         </div>
       </footer>

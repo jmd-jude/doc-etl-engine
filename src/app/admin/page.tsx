@@ -163,9 +163,11 @@ export default function AdminDashboard() {
                   cases.map((case_) => (
                     <tr key={case_.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
-                        <code className="text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded">
-                          {case_.id}
-                        </code>
+                        <Link href={`/admin/review/${case_.id}/enhanced`}>
+                          <code className="text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded cursor-pointer hover:bg-gray-200 transition-colors">
+                            {case_.id}
+                          </code>
+                        </Link>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">

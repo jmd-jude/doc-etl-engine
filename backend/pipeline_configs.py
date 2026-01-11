@@ -26,6 +26,7 @@ PIPELINE_CONFIGS = {
         "persona": "a forensic psychiatrist reviewing records for timeline construction",
         "extraction_model": "gpt-4o-mini",
         "analysis_model": "gpt-4o-mini",
+        "requires_llm_analysis": False,  # Python builds timeline/gaps deterministically
         "num_retries_on_validate_failure": 2,  # Retry twice on validation failure
         "extraction_validation": [
             'output["date"] != ""',       # Enforce date presence (critical for chronology)
@@ -50,7 +51,7 @@ Return JSON with:
 
 Return JSON with:
 - timeline: List of chronological events (include date at start of each)
-- treatment_gaps: Periods >60 days without documented care
+- treatment_gaps: Periods >30 days without documented care
 """,
         "output_schema": {
             "date": "string",
@@ -137,6 +138,7 @@ Return JSON with:
         "persona": "a medical chronologist extracting structured data from records",
         "extraction_model": "gpt-4o-mini",  # Model for extraction phase
         "analysis_model": "gpt-4o-mini",  # Model for analysis phase (contradictions, red flags, expert opinions)
+        "requires_llm_analysis": True,  # Needs LLM for contradictions, red flags, expert opinions
         "num_retries_on_validate_failure": 2,  # Retry twice on validation failure
         "extraction_validation": [
             'output["date"] != ""',  # Enforce date presence (critical for chronology)

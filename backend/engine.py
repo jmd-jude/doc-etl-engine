@@ -316,11 +316,6 @@ def run_forensic_pipeline(input_data, pipeline="psych_timeline", hybrid_mode=Fal
     extraction_model = pipeline_config.get("extraction_model", "gpt-4o-mini")
     analysis_model = pipeline_config.get("analysis_model", "gpt-4o-mini")
 
-    # Auto-enable hybrid mode if pipeline has analysis_schema defined
-    if not hybrid_mode and pipeline_config.get("analysis_schema"):
-        hybrid_mode = True
-        print(f"[Pipeline] Auto-enabling hybrid mode: Pipeline '{pipeline}' has analysis_schema defined")
-
     # Override analysis model if hybrid mode is enabled
     if hybrid_mode:
         analysis_model = "claude-sonnet-4-5-20250929"
@@ -507,9 +502,9 @@ def run_forensic_pipeline(input_data, pipeline="psych_timeline", hybrid_mode=Fal
                 if red_flags:
                     print(f"[Assembly] ⚠️  Added {len(red_flags)} documentation gap(s) to red flags")
 
-                # Step 6: Optional LLM analysis for deeper insights (if hybrid mode enabled)
-                if hybrid_mode:
-                    print(f"[Pipeline] Hybrid mode enabled: Running deep analysis with {analysis_model}")
+                # Step 6: Optional LLM analysis for deeper insights (if pipeline requires it)
+                if pipeline_config.get("requires_llm_analysis", False):
+                    print(f"[Pipeline] Running LLM analysis with {analysis_model}...")
                     analysis_results = analyze_records_for_red_flags(sorted_records, analysis_model, pipeline_config)
 
                     # Merge LLM-generated insights with existing red flags
@@ -521,7 +516,7 @@ def run_forensic_pipeline(input_data, pipeline="psych_timeline", hybrid_mode=Fal
                         red_flags.extend(llm_red_flags)
                         print(f"[Analysis] ✓ Added {len(llm_red_flags)} LLM-detected red flag(s)")
                 else:
-                    print(f"[Pipeline] Hybrid mode disabled: Skipping deep analysis (use hybrid_mode=True for AI insights)")
+                    print(f"[Pipeline] Skipping LLM analysis: Pipeline uses deterministic Python assembly only")
 
                 # Assemble final output
                 analysis_output = {
@@ -566,7 +561,7 @@ def run_forensic_pipeline(input_data, pipeline="psych_timeline", hybrid_mode=Fal
                         print(f"[Pipeline]   - Analysis: ${analysis_cost:.4f}")
 
                 # Determine actual analysis model used
-                actual_analysis_model = analysis_model if hybrid_mode else "python"
+                actual_analysis_model = analysis_model if pipeline_config.get("requires_llm_analysis", False) else "python"
 
                 cost_breakdown = {
                     "extraction_model": extraction_model,
