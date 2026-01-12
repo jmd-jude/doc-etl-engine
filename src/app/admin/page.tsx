@@ -163,7 +163,7 @@ export default function AdminDashboard() {
                   cases.map((case_) => (
                     <tr key={case_.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
-                        <Link href={`/admin/review/${case_.id}/enhanced`}>
+                        <Link href={`/admin/review/${case_.id}`}>
                           <code className="text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded cursor-pointer hover:bg-gray-200 transition-colors">
                             {case_.id}
                           </code>
@@ -207,7 +207,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <Link
-                          href={`/admin/review/${case_.id}/enhanced`}
+                          href={`/admin/review/${case_.id}`}
                           className="text-blue-600 hover:text-blue-800 font-medium text-sm"
                         >
                           Review →
