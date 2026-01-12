@@ -51,6 +51,11 @@ class UpdateStatusRequest(BaseModel):
     case_id: str
     status: str
 
+class ChatRequest(BaseModel):
+    case_id: str
+    message: str
+    history: List[dict] = []  # List of {role: str, content: str}
+
 @app.post("/process")
 async def process_data(request: ProcessRequest):
     """
@@ -366,6 +371,114 @@ async def export_case_pdf(case_id: str):
 
     except Exception as e:
         print(f"[PDF Export Error] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.post("/chat")
+async def chat_with_case(request: ChatRequest):
+    """
+    Chat with case analysis using structured ETL output as grounded context
+
+    Parameters:
+        case_id: Case ID
+        message: User's question
+        history: Previous messages in conversation [{role, content}, ...]
+
+    Returns:
+        AI response based on case analysis
+    """
+    try:
+        from case_manager import get_case
+        import litellm
+
+        # Get case
+        case = get_case(request.case_id)
+        if case is None:
+            return {
+                "status": "error",
+                "error": f"Case {request.case_id} not found"
+            }
+
+        # Use edited version if available (expert-reviewed data)
+        analysis = case.get("edits", case.get("analysis", {}))
+
+        # Build grounded context from ETL output
+        context_parts = []
+
+        # Add all available sections (dynamic based on pipeline)
+        for key, value in analysis.items():
+            if not isinstance(value, list):
+                continue
+
+            # Limit chronology to first 100 events to avoid token limits
+            if key == "chronology" and len(value) > 100:
+                sample = value[:100]
+                context_parts.append(f"{key.upper().replace('_', ' ')} ({len(value)} total events, showing first {len(sample)}):")
+                context_parts.append("\n".join([str(item) for item in sample]))
+            elif value:  # Only add non-empty sections
+                context_parts.append(f"\n{key.upper().replace('_', ' ')} ({len(value)}):")
+                for i, item in enumerate(value, 1):
+                    context_parts.append(f"{i}. {item}")
+
+        context = "\n\n".join(context_parts)
+
+        # System prompt with grounding constraints
+        system_prompt = f"""You are a medical chronology AI assistant analyzing Case {request.case_id}.
+
+EXTRACTED CASE DATA:
+{context}
+
+CRITICAL INSTRUCTIONS:
+- Answer questions using ONLY the extracted data above
+- When asked about "Nth visit" or "Nth event", count by the numbered LIST POSITION (1., 2., 3., etc.), NOT by text content
+  Example: "3rd event" = the item numbered "3." in the chronology, regardless of what the text says
+- Always cite record IDs when referencing specific events (format: [RECORD-ID])
+- If asked about something not in the data, say "This information is not available in the extracted analysis"
+- Be concise and factual
+- For counts/statistics, provide exact numbers from the data
+- For date ranges, use YYYY-MM-DD format
+
+Do NOT speculate, infer, or add information beyond what's explicitly in the extracted data."""
+
+        # Build message history
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ]
+
+        # Add conversation history
+        for msg in request.history:
+            messages.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
+
+        # Add current message
+        messages.append({
+            "role": "user",
+            "content": request.message
+        })
+
+        # Call LLM
+        response = litellm.completion(
+            model="claude-sonnet-4-5-20250929",
+            messages=messages,
+            temperature=0.1  # Low temperature for factual responses
+        )
+
+        answer = response.choices[0].message.content
+
+        return {
+            "status": "success",
+            "response": answer,
+            "case_id": request.case_id
+        }
+
+    except Exception as e:
+        print(f"[Chat Error] {str(e)}")
         import traceback
         traceback.print_exc()
         return {

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
 import {
   Search,
   AlertCircle,
@@ -107,6 +108,66 @@ function extractRecordIds(text: string): { cleanText: string; recordIds: string[
 }
 
 // ============================================================================
+// SOURCE PANEL COMPONENT
+// ============================================================================
+
+interface SourcePanelProps {
+  records: any[];
+  onClose: () => void;
+  formatKey: (key: string) => string;
+  formatValue: (value: any) => string;
+}
+
+const SourcePanel = ({ records, onClose, formatKey, formatValue }: SourcePanelProps) => {
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-3 flex items-center justify-between z-10 shadow-md">
+        <h3 className="text-white font-semibold flex items-center gap-2">
+          <FileText className="w-4 h-4" />
+          Source Records ({records.length})
+        </h3>
+        <button
+          onClick={onClose}
+          className="text-white hover:text-gray-200 text-2xl font-bold leading-none"
+          title="Close panel"
+        >
+          ×
+        </button>
+      </div>
+
+      {/* Records */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {records.map((record, idx) => (
+          <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+            {/* Record Header */}
+            <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+              <code className="text-sm font-semibold text-blue-700">
+                {record.record_id || record.id || 'Unknown'}
+              </code>
+            </div>
+
+            {/* Record Content */}
+            <div className="p-3 bg-white space-y-3 text-sm">
+              {Object.entries(record).map(([key, value]) => (
+                <div key={key}>
+                  <div className="font-semibold text-gray-700 text-xs uppercase tracking-wide">
+                    {formatKey(key)}:
+                  </div>
+                  <div className="text-gray-900 whitespace-pre-wrap break-words mt-1">
+                    {formatValue(value)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -123,10 +184,19 @@ export default function EnhancedCaseReview() {
   );
   const [comments, setComments] = useState<{ [section: string]: { [index: number]: string } }>({});
   const [commentModalData, setCommentModalData] = useState<{section: string, index: number, currentComment: string} | null>(null);
-  const [viewSourceModalData, setViewSourceModalData] = useState<{recordId: string, record: any} | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
+  // Source Panel state
+  const [sourcePanelOpen, setSourcePanelOpen] = useState(false);
+  const [sourcePanelRecords, setSourcePanelRecords] = useState<any[]>([]);
+
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<Array<{role: string; content: string}>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     fetchCase();
@@ -215,19 +285,23 @@ export default function EnhancedCaseReview() {
     setCommentModalData(null);
   };
 
-  const openSourceModal = (recordId: string) => {
+  const openSourcePanel = (recordIds: string[]) => {
     if (!case_?.original_records) {
       alert('Original source records not available for this case');
       return;
     }
 
-    const record = case_.original_records.find((r: any) => r.record_id === recordId || r.id === recordId);
-    if (!record) {
-      alert(`Record ${recordId} not found`);
+    const records = case_.original_records.filter((r: any) =>
+      recordIds.includes(r.record_id || r.id)
+    );
+
+    if (records.length === 0) {
+      alert(`No records found for IDs: ${recordIds.join(', ')}`);
       return;
     }
 
-    setViewSourceModalData({ recordId, record });
+    setSourcePanelRecords(records);
+    setSourcePanelOpen(true);
   };
 
   const formatKey = (key: string): string => {
@@ -239,6 +313,48 @@ export default function EnhancedCaseReview() {
     if (Array.isArray(value)) return value.join(', ');
     if (typeof value === 'object') return JSON.stringify(value, null, 2);
     return String(value);
+  };
+
+  const sendChatMessage = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+
+    const userMessage = chatInput.trim();
+    setChatInput('');
+
+    // Add user message to history
+    const newMessages = [...chatMessages, { role: 'user', content: userMessage }];
+    setChatMessages(newMessages);
+    setChatLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:8001/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          case_id: caseId,
+          message: userMessage,
+          history: chatMessages
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        setChatMessages([...newMessages, { role: 'assistant', content: data.response }]);
+      } else {
+        setChatMessages([...newMessages, {
+          role: 'assistant',
+          content: `Error: ${data.error}`
+        }]);
+      }
+    } catch (err) {
+      setChatMessages([...newMessages, {
+        role: 'assistant',
+        content: 'Failed to get response from server'
+      }]);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   // ============================================================================
@@ -322,9 +438,9 @@ export default function EnhancedCaseReview() {
         {recordsArray.map((record, idx) => (
           <button
             key={idx}
-            onClick={() => openSourceModal(String(record))}
+            onClick={() => openSourcePanel([String(record)])}
             className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer"
-            title="Click to view source record"
+            title="Click to view source record in side panel"
           >
             <FileText className="w-3 h-3 mr-1" />
             {String(record)}
@@ -503,9 +619,9 @@ export default function EnhancedCaseReview() {
                     {recordIds.map((recordId, ridx) => (
                       <button
                         key={ridx}
-                        onClick={() => openSourceModal(recordId)}
+                        onClick={() => openSourcePanel([recordId])}
                         className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer"
-                        title="Click to view source record"
+                        title="Click to view source record in side panel"
                       >
                         <FileText className="w-3 h-3 mr-1" />
                         {recordId}
@@ -556,9 +672,9 @@ export default function EnhancedCaseReview() {
                 {recordIds.map((recordId, ridx) => (
                   <button
                     key={ridx}
-                    onClick={() => openSourceModal(recordId)}
+                    onClick={() => openSourcePanel([recordId])}
                     className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer"
-                    title="Click to view source record"
+                    title="Click to view source record in side panel"
                   >
                     <FileText className="w-3 h-3 mr-1" />
                     {recordId}
@@ -898,6 +1014,18 @@ export default function EnhancedCaseReview() {
         </div>
       </main>
 
+      {/* Source Panel */}
+      {sourcePanelOpen && (
+        <div className="fixed right-2 top-[95px] bottom-2 w-[500px] bg-white border-l border-gray-200 shadow-xl overflow-hidden z-40 rounded-lg">
+          <SourcePanel
+            records={sourcePanelRecords}
+            onClose={() => setSourcePanelOpen(false)}
+            formatKey={formatKey}
+            formatValue={formatValue}
+          />
+        </div>
+      )}
+
       {/* Comment Modal */}
       {commentModalData && (
         <div
@@ -974,59 +1102,96 @@ export default function EnhancedCaseReview() {
         </div>
       )}
 
-      {/* Source Record Modal */}
-      {viewSourceModalData && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 pt-30 overflow-y-auto"
-          onClick={() => setViewSourceModalData(null)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-2xl max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Source Record: {viewSourceModalData.recordId}
-              </h3>
-              <button
-                onClick={() => setViewSourceModalData(null)}
-                className="text-white hover:text-gray-200 text-2xl font-bold"
-              >
-                ×
-              </button>
-            </div>
+      {/* Chat Toggle Button - Floating */}
+      <button
+        onClick={() => setShowChat(!showChat)}
+        className="fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-all"
+        title="Chat with case"
+      >
+        <MessageCircle className="w-6 h-6" />
+      </button>
 
-            {/* Modal Body - Scrollable */}
-            <div className="overflow-y-auto p-6">
-              <div className="border-2 border-gray-200 rounded-lg p-4 bg-gray-50">
-                {viewSourceModalData.record ? (
-                  <div className="space-y-2">
-                    {Object.entries(viewSourceModalData.record).map(([key, value]) => (
-                      <div key={key} className="grid grid-cols-4 gap-2">
-                        <div className="col-span-1 text-sm font-semibold text-gray-700">
-                          {formatKey(key)}:
-                        </div>
-                        <div className="col-span-3 text-sm text-gray-900 whitespace-pre-wrap break-words">
-                          {formatValue(value)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-red-600 italic">Record not found</div>
-                )}
+      {/* Chat Panel */}
+      {showChat && (
+        <div className="fixed bottom-0 right-6 w-120 h-[600px] bg-white border-2 border-gray-300 rounded-t-xl shadow-2xl z-40 flex flex-col">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-3 flex items-center justify-between rounded-t-lg">
+            <h3 className="text-white font-semibold flex items-center gap-2">
+              <MessageCircle className="w-4 h-4" />
+              Ask about this case
+            </h3>
+            <button
+              onClick={() => setShowChat(false)}
+              className="text-white hover:text-gray-200 text-xl font-bold"
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+            {chatMessages.length === 0 ? (
+              <div className="text-center text-gray-500 text-sm mt-8">
+                <p className="mb-4">Ask questions about this case analysis</p>
+                <div className="text-xs text-left space-y-1 bg-white p-3 rounded border border-gray-200">
+                  <p className="font-semibold text-gray-700 mb-2">Example questions:</p>
+                  <p>• &quot;Summarize treatment gaps&quot;</p>
+                  <p>• &quot;Which provider appears most often?&quot;</p>
+                  <p>• &quot;List all medication changes&quot;</p>
+                  <p>• &quot;What contradictions were found?&quot;</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              chatMessages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                      msg.role === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white border border-gray-200 text-gray-900'
+                    }`}
+                  >
+                    <div className={`text-sm prose prose-sm max-w-none ${msg.role === 'user' ? 'prose-invert' : ''}`}>
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white border border-gray-200 rounded-lg px-4 py-2">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
-            {/* Modal Footer */}
-            <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
+          {/* Input */}
+          <div className="p-3 bg-white border-t border-gray-200">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                placeholder="Ask a question..."
+                disabled={chatLoading}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+              />
               <button
-                onClick={() => setViewSourceModalData(null)}
-                className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                onClick={sendChatMessage}
+                disabled={chatLoading || !chatInput.trim()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg text-sm font-medium transition-colors"
               >
-                Close
+                Send
               </button>
             </div>
           </div>
