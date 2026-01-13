@@ -11,5 +11,3 @@ python-dotenv>=1.0.0
 
 # PDF generation
 reportlab>=4.2.0
-
-react-markdown

@@ -78,17 +78,13 @@ npm run lint
 # Activate virtual environment
 source backend/venv/bin/activate
 
-# Install dependencies (if requirements.txt exists)
+# Install dependencies
 pip install -r backend/requirements.txt
 
-# Or manually install core dependencies
-pip install fastapi uvicorn docetl python-dotenv
-
 # Run backend server (http://localhost:8001)
-cd backend
-python main.py
-# or with uvicorn directly:
-uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+python backend/main.py
+# or with uvicorn directly from project root:
+uvicorn backend.main:app --host 0.0.0.0 --port 8001 --reload
 
 # Deactivate virtual environment
 deactivate
@@ -97,7 +93,7 @@ deactivate
 ### Running Both Services
 The application requires both servers running simultaneously:
 - Frontend: `npm run dev` (port 3001)
-- Backend: `python backend/main.py` (port 8001)
+- Backend: `source backend/venv/bin/activate && python backend/main.py` (port 8001)
 
 ## Key Configuration Files
 
@@ -243,10 +239,12 @@ To add a new pipeline tier (e.g., "psych_brief_screen"):
 ## Important Notes
 
 - **CORS Configuration**: Backend allows `localhost:3000` and `localhost:3001`
-- **Case Storage**: Cases persist in `/tmp/cases/` on macOS/Linux (access via `Cmd+Shift+G` → `/tmp/cases/` in Finder)
-  - To move to project: Change `CASES_DIR` in `backend/case_manager.py` to use project directory
+- **Case Storage**: Cases persist in `backend/cases/` directory (local to project)
+  - Also supports `/tmp/cases/` on macOS/Linux for system-level persistence
+  - Storage location configured via `CASES_DIR` in `backend/case_manager.py`
 - **LLM Model**: Default model is `gpt-4o-mini` (configured in `engine.py`)
 - **Python Version**: Uses Python 3.13 (check `backend/venv/pyvenv.cfg`)
+- **Environment Variables**: Create `.env` file in `backend/` directory with `OPENAI_API_KEY` for DocETL
 - **Font System**: Uses Geist Sans and Geist Mono fonts via `next/font`
 - **Dynamic UI**: Frontend automatically renders any analysis fields returned by pipelines
 - **Backward Compatibility**: Supports both legacy `domain` and new `pipeline` fields in case data
